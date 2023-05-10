@@ -1,0 +1,15 @@
+- name: Create Proxmox user token
+  hosts: proxmox
+  vars:
+    prx_usr: "{{ lookup('env','PRX_USR') }}@pam"
+    prx_tkn_id: "{{ lookup('env','PRX_TKN_ID') }}"
+  tasks:
+    - name: Create proxmox user token
+      shell: pveum user token add "{{ prx_usr }}" "{{ prx_tkn_id }}" | grep value | awk '{ if ($2 == "value") print $4}'
+      register: user_token_secret
+    - name: Output the token secret to GitHub
+      debug:
+        msg: "{{ user_token_secret.stdout }}"
+    - name: Grant rights to proxmox token
+      shell: |
+        pveum acl modify / -roles Administrator -tokens '{{ prx_usr }}!{{ prx_tkn_id }}'

@@ -1,0 +1,16 @@
+- name: Create Ansible user on pfSense
+  hosts: pfsense
+  collections:
+    - pfsensible.core
+  remote_user: admin
+  become: false
+  tasks:
+    - name: Add Ansible user
+      pfsense_user:
+        name: "{{ lookup('env','ADM_USR') }}"
+        password: "{{ lookup('env','ADM_PWD') | password_hash('bcrypt') }}"
+        authorizedkeys: "{{ lookup('env','PUBLIC_KEY') }}"
+        descr: Ansible User
+        scope: system
+        groups: [ 'admins' ]
+        priv: [ 'page-all', 'user-shell-access' ]

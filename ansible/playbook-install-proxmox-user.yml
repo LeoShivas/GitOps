@@ -1,0 +1,23 @@
+- name: Install Proxmox user
+  hosts: proxmox
+  vars:
+    prx_usr: "{{ lookup('env','PRX_USR') }}@pam"
+  tasks:
+    - name: Create PAM user
+      user:
+        name: "{{ prx_usr }}"
+        shell: /bin/bash
+        comment: "Proxmox user created by Ansible"
+        system: true
+    - name: Check proxmox user
+      shell: pveum user list|grep -o "{{ prx_usr }}"
+      ignore_errors: True
+      register: existing_user
+    - name: Delete existing proxmox user
+      shell: pveum user delete "{{ prx_usr }}"
+      when: existing_user.stdout == prx_usr
+    - name: Create proxmox user
+      shell: pveum user add "{{ prx_usr }}" -comment "User created by Ansible"
+    - name: Grant rights to proxmox user
+      shell: |
+        pveum acl modify / -roles Administrator -users '{{ prx_usr }}'

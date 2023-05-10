@@ -1,0 +1,24 @@
+name: 08 Install Ansible user on pfSense
+on:
+  workflow_dispatch:
+jobs:
+  install-pfsense-ansible-user:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.PFSENSE_ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: admin
+    - name: Install pfsensible collection
+      run: ansible-galaxy collection install pfsensible.core
+    - name: Install passlib[bcrypt]
+      run: pip install passlib[bcrypt]
+    - name: Install Ansible user on target
+      env:
+        ADM_USR: ${{ secrets.ADM_NAME }}
+        ADM_PWD: ${{ secrets.ADM_PWD }}
+        PUBLIC_KEY: ${{ secrets.ADM_SSH_PUBLIC_KEY }}
+      run: ansible-playbook ansible/playbook-pfsense-create-ansible-user.yml

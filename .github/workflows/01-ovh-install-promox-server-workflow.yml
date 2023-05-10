@@ -1,0 +1,24 @@
+name: 01 Install Proxmox on OVH dedicated server
+on:
+  workflow_dispatch:
+env:
+  OVH_ENDPOINT: ${{ vars.OVH_ENDPOINT }}
+  OVH_TEMPLATE: ${{ vars.OVH_TEMPLATE }}
+  OVH_PROXMOX_SERVER: ${{ secrets.OVH_PROXMOX_SERVER }}
+  OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
+  OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
+  OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+  OVH_CUSTOM_HOSTNAME: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+  OVH_SSH_KEY_NAME: ${{ secrets.OVH_SSH_KEY_NAME }}
+jobs:
+  install-proxmox-on-dedicated-server:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Install the latest release of OVH Python wrapper
+      run: pip install ovh
+    - name: Set the RAID type on custom template
+      run: python python/ovh/clone_proxmox_template_to_RAID5.py
+    - name: Launch Proxmox installation
+      run: python python/ovh/install_baremetal_server_from_template.py

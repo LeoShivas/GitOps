@@ -1,0 +1,20 @@
+name: 04 Download pfSense ISO on Proxmox
+on:
+  workflow_dispatch:
+jobs:
+  proxmox-download-pfsense:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: ${{ secrets.ADM_NAME }}
+    - name: Dowload ISO file on Proxmox
+      env:
+        ISO_URL: ${{ vars.PFSENSE_ISO_URL }}
+        ISO_CHECKSUM: ${{ vars.PFSENSE_ISO_CHECKSUM }}
+        ISO_FILE: ${{ vars.PFSENSE_ISO_FILE }}
+      run: ansible-playbook ansible/playbook-download-iso-on-promox.yml

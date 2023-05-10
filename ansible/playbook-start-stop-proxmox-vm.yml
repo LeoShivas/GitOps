@@ -1,0 +1,23 @@
+- name: Start or stop VM on Proxmox
+  hosts: localhost
+  vars:
+    state: "{{ lookup('env','STATE') }}"
+    vm_id: "{{ lookup('env','VM_ID') }}"
+    proxmox_token_id: "{{ lookup('env','TOKEN') }}"
+    proxmox_token_secret: "{{ lookup('env','PM_API_TOKEN_SECRET') }}"
+    proxmox_host: "{{ lookup('env','FQDN') }}"
+    proxmox_user: "{{ lookup('env','USER') }}@pam"
+  tasks:
+    - name: Install prerequisites
+      ansible.builtin.pip:
+        name:
+          - proxmoxer
+          - requests
+    - name: Start or stop Proxmox VM
+      community.general.proxmox_kvm:
+        vmid: "{{ vm_id }}"
+        api_token_id: "{{ proxmox_token_id }}"
+        api_token_secret: "{{ proxmox_token_secret }}"
+        api_host: "{{ proxmox_host }}"
+        api_user: "{{ proxmox_user }}"
+        state: "{{ state }}"

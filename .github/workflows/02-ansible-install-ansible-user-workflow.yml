@@ -1,0 +1,20 @@
+name: 02 Install Ansible user
+on:
+  workflow_dispatch:
+jobs:
+  install-ansible-user-on-dedicated-server:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.OVH_SSH_PRIVATE_KEY }}
+        default-ssh-user: root
+    - name: Create temporary SSH public key file
+      run: echo "${{ secrets.ADM_SSH_PUBLIC_KEY }}" > ~/temp_id_rsa.pub
+    - name: Install Ansible user on target
+      env:
+        ADM_USR: ${{ secrets.ADM_NAME }}
+      run: ansible-playbook ansible/playbook-install-ansible-user.yml

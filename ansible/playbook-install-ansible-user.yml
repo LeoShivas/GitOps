@@ -1,0 +1,20 @@
+- name: Install Ansible user
+  hosts: proxmox
+  tasks:
+    - name: Create Ansible user
+      user:
+        name: "{{ lookup('env','ADM_USR') }}"
+        shell: /bin/bash
+        createhome: yes
+        comment: "Ansible user created by Ansible"
+        system: true
+    - name: Add SSH pub key in authorized_keys
+      authorized_key:
+        user: "{{ lookup('env','ADM_USR') }}"
+        key: "{{ lookup('file', lookup('env','HOME') + '/temp_id_rsa.pub') }}"
+    - name: Add Ansible user to sudo
+      community.general.sudoers:
+        name: ansible-user
+        user: "{{ lookup('env','ADM_USR') }}"
+        commands: ALL
+      

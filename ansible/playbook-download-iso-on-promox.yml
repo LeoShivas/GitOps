@@ -1,0 +1,14 @@
+- name: Download ISO file with gz extension on Proxmox
+  hosts: proxmox
+  vars:
+    iso_url: "{{ lookup('env','ISO_URL') }}"
+    iso_checksum: "{{ lookup('env','ISO_CHECKSUM') }}"
+    iso_file: "{{ lookup('env','ISO_FILE') }}"
+  tasks:
+    - name: Download file from URL
+      ansible.builtin.get_url:
+        url: "{{ iso_url }}"
+        dest: "/var/lib/vz/template/iso/{{ iso_file }}.gz"
+        checksum: "{{ iso_checksum }}"
+    - name: Extract ISO file
+      command: gunzip /var/lib/vz/template/iso/{{ iso_file }}.gz

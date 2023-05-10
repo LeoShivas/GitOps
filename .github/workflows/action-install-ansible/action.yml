@@ -1,0 +1,41 @@
+name: Ansible install
+inputs:
+  default-private-key:
+    description: 'SSH private key'
+    required: true
+  default-ssh-user:
+    description: 'SSH user'
+    required: true
+runs:
+  using: "composite"
+  steps:
+  - name: Set up Python 3.11
+    uses: actions/setup-python@v4
+    with:
+      python-version: 3.11
+  - name: Install dependencies
+    run: |
+      python -m pip install --upgrade pip
+      pip install ansible
+    shell: bash
+  - name: set ansible config secrets
+    env:
+      SSH_PRI: ${{ inputs.default-private-key }}
+    run: |
+      mkdir ~/.ssh
+      echo "$SSH_PRI" > ~/.ssh/id_rsa
+      chmod 600 ~/.ssh/id_rsa
+    shell: bash
+  - name: set default settings
+    shell: bash
+    env:
+      SSH_USR: ${{ inputs.default-ssh-user }}
+    run: |
+      cat << EOF > ~/.ansible.cfg
+      [defaults]
+      inventory = $(pwd)/ansible/hosts.yml
+      remote_user = $SSH_USR
+      host_key_checking = False
+      [privilege_escalation]
+      become = True
+      EOF

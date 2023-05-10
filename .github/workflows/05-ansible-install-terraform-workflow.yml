@@ -1,0 +1,45 @@
+name: 05 Ansible Install Terraform workflow
+on:
+  workflow_dispatch:
+jobs:
+  install-terraform-user:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout repository
+      - uses: ./.github/workflows/action-install-ansible
+        name: Launch ansible installation
+        with:
+          default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+          default-ssh-user: ${{ secrets.ADM_NAME }}
+      - name: Install Proxmox Terraform user on target
+        id: install-proxmox-usr
+        env:
+          ADM_USR: ${{ secrets.TERRAFORM_USR_NAME }}
+        run: ansible-playbook ansible/playbook-install-proxmox-user.yml
+      - name: Create Proxmox Terraform user token on target
+        id: create-proxmox-usr-token
+        env:
+          ADM_USR: ${{ secrets.TERRAFORM_USR_NAME }}
+          ADM_TKN_ID: ${{ secrets.TERRAFORM_USR_TOKEN_ID }}
+        run: |
+          token=$(ansible-playbook ansible/playbook-create-proxmox-user-token.yml | grep msg | awk -F\" '{print $4}')
+          echo "::add-mask::$token"
+          echo "token_secret=$token" >> $GITHUB_OUTPUT
+      - name: Save Proxmox Terraform token secret to GitHub secrets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TKN_SCECRETS_WRITE }}
+        run: |
+          gh secret set TERRAFORM_USR_TOKEN_SECRET --body "${{ steps.create-proxmox-usr-token.outputs.token_secret }}"
+      - name: Send Proxmox token secret by email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: Github Proxmox Terraform user creation workflow job result
+          to: ${{secrets.MAIL_USERNAME}}
+          from: LeoShivas ${{secrets.MAIL_USERNAME}}
+          body: "Here is the new Proxmox Terraform user token : ${{ steps.create-proxmox-usr-token.outputs.token_secret }}"

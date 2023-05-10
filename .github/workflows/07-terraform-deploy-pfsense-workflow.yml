@@ -1,0 +1,59 @@
+name: 07 Deploy pfSense workflow
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [06 Packer pfSense workflow]
+    types: [completed]
+env:
+  PM_API_URL: ${{ secrets.PROXMOX_URL }}
+  PM_API_TOKEN_ID: "${{ secrets.TERRAFORM_USR_NAME }}@pam!${{ secrets.TERRAFORM_USR_TOKEN_ID }}"
+  PM_API_TOKEN_SECRET: ${{ secrets.TERRAFORM_USR_TOKEN_SECRET }}
+  TF_CLOUD_ORGANIZATION: ${{ secrets.TERRAFORM_CLOUD_ORG }}
+  TF_WORKSPACE: ${{ secrets.TERRAFORM_CLOUD_WORKSPACE }}
+  TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+jobs:
+  terraform-deploy-pfsense:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - name: Install the latest release of OVH Python wrapper
+      run: pip install ovh
+    - name: Get the MAC address
+      id: get-mac-address
+      run: python python/ovh/retreive_baremetal_server_virtual_mac.py
+      env:
+        OVH_ENDPOINT: ${{ vars.OVH_ENDPOINT }}
+        OVH_PROXMOX_SERVER: ${{ secrets.OVH_PROXMOX_SERVER }}
+        OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
+        OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
+        OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+    - name: HashiCorp - Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+    - name: Terraform Init
+      working-directory: terraform/deploy-pfsense
+      run: terraform init
+    - name: Terraform Flush
+      working-directory: terraform/deploy-pfsense
+      run: terraform state rm proxmox_vm_qemu.pfsense
+      continue-on-error: true
+    - name: Terraform Validate
+      working-directory: terraform/deploy-pfsense
+      run: terraform validate -no-color
+    - name: Terraform Format
+      working-directory: terraform/deploy-pfsense
+      run: terraform fmt -check
+      continue-on-error: true
+    - name: Terraform Plan
+      working-directory: terraform/deploy-pfsense
+      run: terraform plan -no-color -out tf.plan
+      env:
+        TF_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        TF_VAR_mac_address: ${{ env.VIRTUAL_MAC }}
+    - name: Terraform Apply
+      working-directory: terraform/deploy-pfsense
+      run: terraform apply tf.plan
+      env:
+        TF_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        TF_VAR_mac_address: ${{ env.VIRTUAL_MAC }}
