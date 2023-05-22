@@ -5,40 +5,45 @@ jobs:
   packer-pfsense:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    - name: Install the latest release of OVH Python wrapper
-      run: pip install ovh
-    - name: Get the MAC address
-      id: get-mac-address
-      run: python python/ovh/retreive_baremetal_server_virtual_mac.py
-      env:
-        OVH_ENDPOINT: ${{ vars.OVH_ENDPOINT }}
-        OVH_PROXMOX_SERVER: ${{ secrets.OVH_PROXMOX_SERVER }}
-        OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
-        OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
-        OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
-    - name: Retrieve target pfSense SSH port
-      id: get-ssh-port
-      run: |
-        port=$(ansible-inventory -i ansible/hosts.yml --host pfsense | grep ansible_port | awk '{print $NF}')
-        echo "::add-mask::$port"
-        echo "target_ssh_port=$port" >> $GITHUB_OUTPUT
-    - name: Packer init
-      run: packer init packer/proxmox-pfSense.pkr.hcl
-      env:
-        PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Packer build
-      run: packer build packer/proxmox-pfSense.pkr.hcl
-      env:
-        PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
-        PROXMOX_USERNAME: "${{ secrets.PROXMOX_ADM_NAME }}@pam!${{ secrets.PROXMOX_ADM_TOKEN_ID }}"
-        PROXMOX_TOKEN: ${{ secrets.PROXMOX_ADM_TOKEN_SECRET }}
-        PKR_VAR_iso_file: ${{ vars.PFSENSE_ISO_FILE }}
-        PKR_VAR_virtual_mac: ${{ env.VIRTUAL_MAC }}
-        PKR_VAR_ip_address: ${{ secrets.OVH_VIRTUAL_IP }}
-        PKR_VAR_ip_gateway: ${{ secrets.OVH_GATEWAY_IP }}
-        PKR_VAR_pfsense_adm_pwd: ${{ secrets.PFSENSE_ADM_PWD }}
-        PKR_VAR_pfsense_ssh_port: ${{ steps.get-ssh-port.outputs.target_ssh_port }}
-        PKR_VAR_pfsense_adm_ssh_public_key: ${{ secrets.PFSENSE_ADM_SSH_PUBLIC_KEY }}
-        PKR_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ovh ansible lxml passlib[bcrypt]
+      - name: Get the MAC address
+        id: get-mac-address
+        run: python python/ovh/retreive_baremetal_server_virtual_mac.py
+        env:
+          OVH_ENDPOINT: ${{ vars.OVH_ENDPOINT }}
+          OVH_PROXMOX_SERVER: ${{ secrets.OVH_PROXMOX_SERVER }}
+          OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
+          OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
+          OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+      - name: Packer init
+        run: packer init packer/proxmox-pfSense.pkr.hcl
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install pfsensible collection
+        run: ansible-galaxy collection install pfsensible.core
+      - name: Packer build
+        run: packer build packer/proxmox-pfSense.pkr.hcl
+        env:
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+          PROXMOX_USERNAME: "${{ secrets.PROXMOX_ADM_NAME }}@pam!${{ secrets.PROXMOX_ADM_TOKEN_ID }}"
+          PROXMOX_TOKEN: ${{ secrets.PROXMOX_ADM_TOKEN_SECRET }}
+          PKR_VAR_iso_file: ${{ vars.PFSENSE_ISO_FILE }}
+          PKR_VAR_virtual_mac: ${{ env.VIRTUAL_MAC }}
+          PKR_VAR_ip_address: ${{ secrets.OVH_VIRTUAL_IP }}
+          PKR_VAR_ip_gateway: ${{ secrets.OVH_GATEWAY_IP }}
+          PKR_VAR_pfsense_adm_pwd: ${{ secrets.PFSENSE_ADM_PWD }}
+          PKR_VAR_pfsense_ssh_port: ${{ secrets.PFSENSE_SSH_PORT }}
+          PKR_VAR_pfsense_adm_ssh_public_key: ${{ secrets.PFSENSE_ADM_SSH_PUBLIC_KEY }}
+          PKR_VAR_ansible_usr_name: ${{ secrets.ADM_NAME }}
+          PKR_VAR_ansible_usr_pwd: ${{ secrets.ADM_PWD }}
+          PKR_VAR_ansible_public_key: ${{ secrets.ADM_SSH_PUBLIC_KEY }}
+          PKR_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}

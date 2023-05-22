@@ -46,6 +46,21 @@ variable "pfsense_adm_ssh_public_key" {
   default = ""
 }
 
+variable "ansible_usr_name" {
+  type    = string
+  default = ""
+}
+
+variable "ansible_usr_pwd" {
+  type    = string
+  default = ""
+}
+
+variable "ansible_public_key" {
+  type    = string
+  default = ""
+}
+
 variable "prx_node" {
   type    = string
   default = ""
@@ -114,6 +129,7 @@ source "proxmox-iso" "main" {
 }
 
 build {
+  name = "pfsense"
   sources = ["source.proxmox-iso.main"]
   provisioner "shell" {
     inline = [
@@ -128,7 +144,36 @@ build {
       "/bin/sh -c \"tail -n $(expr `wc -l /conf/config.xml|awk '{print $1}'` - `grep -n user-shell-access /conf/config.xml|awk -F: '{print $1}'`) /conf/config.xml >> /conf/config.xml_tmp\"",
       "mv /conf/config.xml_tmp /conf/config.xml",
       "rm /tmp/config.cache",
+      "pkg install -y pfSense-pkg-sudo",
     ]
   }
-
+  provisioner "file" {
+    direction = "download"
+    source = "/conf/config.xml"
+    destination = "/tmp/config.xml"
+  }
+  provisioner "shell-local" {
+    inline = [
+      "ansible-playbook ansible/playbook-pfsense-sudo-conf.yml",
+    ]
+  }
+  provisioner "file" {
+    source = "/tmp/config.xml"
+    destination = "/conf/config.xml"
+    generated = true
+  }
+  provisioner "shell" {
+    inline = [
+      "rm /tmp/config.cache",
+    ]
+  }
+  provisioner "ansible" {
+    playbook_file = "ansible/playbook-pfsense-create-ansible-user.yml"
+    inventory_file_template = "${build.name} ansible_host=${build.Host} ansible_user=${build.User} ansible_port=${build.Port} ansible_password=${build.Password}\n"
+    ansible_env_vars = [
+      "ADM_USR=${var.ansible_usr_name}",
+      "ADM_PWD=${var.ansible_usr_pwd}",
+      "PUBLIC_KEY=${var.ansible_public_key}",
+    ]
+  }
 }

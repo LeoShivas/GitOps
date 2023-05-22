@@ -1,0 +1,12 @@
+- name: Configure pfSense (update sudo)
+  hosts: localhost
+  become: false
+  tasks:
+  - name: Add NOPASSWORD option to sudo
+    community.general.xml:
+      path: /tmp/config.xml
+      xpath: /pfsense/installedpackages/sudo/config/row/username[text()="group:admins"]
+      insertafter: true
+      add_children:
+      - nopasswd: "ON"
+      pretty_print: yes
