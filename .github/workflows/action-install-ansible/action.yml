@@ -3,9 +3,19 @@ inputs:
   default-private-key:
     description: 'SSH private key'
     required: true
+    type: string
   default-ssh-user:
     description: 'SSH user'
-    required: true
+    default: 'root'
+    type: string
+  default-ssh-port:
+    description: 'SSH port'
+    default: 22
+    type: number
+  default-ssh-ip:
+    description: 'SSH IP'
+    default: 'localhost'
+    type: string
 runs:
   using: "composite"
   steps:
@@ -30,12 +40,18 @@ runs:
     shell: bash
     env:
       SSH_USR: ${{ inputs.default-ssh-user }}
+      SSH_PORT: ${{ inputs.default-ssh-port }}
+      SSH_IP: ${{ inputs.default-ssh-ip }}
     run: |
       cat << EOF > ~/.ansible.cfg
       [defaults]
       inventory = $(pwd)/ansible/hosts.yml
-      remote_user = $SSH_USR
+      remote_user = ${SSH_USR}
+      remote_port = ${SSH_PORT}
       host_key_checking = False
+      interpreter_python = auto_silent
       [privilege_escalation]
       become = True
+      [ssh_connection]
+      ssh_common_args = "-o ProxyCommand='ssh -o StrictHostKeyChecking=no -p ${SSH_PORT} -W %h:%p -q ${SSH_USR}@${SSH_IP}'"
       EOF

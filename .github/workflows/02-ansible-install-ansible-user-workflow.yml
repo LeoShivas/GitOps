@@ -11,7 +11,6 @@ jobs:
       name: Launch ansible installation
       with:
         default-private-key: ${{ secrets.OVH_SSH_PRIVATE_KEY }}
-        default-ssh-user: root
     - name: Create temporary SSH public key file
       run: echo "${{ secrets.ADM_SSH_PUBLIC_KEY }}" > ~/temp_id_rsa.pub
     - name: Install Ansible user on target
