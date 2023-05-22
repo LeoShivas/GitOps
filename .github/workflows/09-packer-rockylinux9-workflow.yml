@@ -1,0 +1,24 @@
+name: 09 Create Rocky template with Packer workflow
+on:
+  workflow_dispatch:
+jobs:
+  packer-rocky:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - name: Packer init
+      run: packer init packer/proxmox-rocky.pkr.hcl
+      env:
+        PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Packer build
+      run: packer build packer/proxmox-rocky.pkr.hcl
+      env:
+        PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+        PROXMOX_USERNAME: "${{ secrets.PROXMOX_ADM_NAME }}@pam!${{ secrets.PROXMOX_ADM_TOKEN_ID }}"
+        PROXMOX_TOKEN: ${{ secrets.PROXMOX_ADM_TOKEN_SECRET }}
+        PKR_VAR_iso_url: ${{ vars.ROCKY9_ISO_URL }}
+        PKR_VAR_iso_checksum: ${{ vars.ROCKY9_ISO_CHECKSUM }}
+        PKR_VAR_pkr_pwd: ${{ secrets.PACKER_ADM_PWD }}
+        PKR_VAR_pkr_username: ${{ secrets.PACKER_ADM_NAME }}
+        PKR_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
