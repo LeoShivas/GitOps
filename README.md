@@ -122,7 +122,7 @@ By following the [official GitHub documentation](https://docs.github.com/fr/acti
 In order to create the Ansible user on the remote servers, you have to define all the hosts in the `all` section in the `hosts.yml` inventory file.
 Then, go the Action tab in GitHub and launch the "Install Ansible user" workflow.
 This is how it works :
-* The workflow is defined by the [.github/workflows/02-ansible-install-ansible-user-workflow.yml](.github/workflows/ansible-install-ansible-user-workflow.yml) file
+* The workflow is defined by the [.github/workflows/02-ansible-install-ansible-user-workflow.yml](.github/workflows/02-ansible-install-ansible-user-workflow.yml) file
 * It uses the [.github/workflows/action-install-ansible/action.yml](.github/workflows/action-install-ansible/action.yml) file, which contains the Ansible install GitHub composite action
   * This action installs :
     * Python
