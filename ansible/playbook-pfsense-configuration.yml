@@ -1,0 +1,16 @@
+- name: Configure pfSense
+  hosts: localhost
+  become: false
+  tasks:
+  - name: Add DHCP leases to DNS resolver
+    community.general.xml:
+      path: /tmp/pfsense/config.xml
+      xpath: /pfsense/unbound/regdhcp
+      value: ""
+      pretty_print: yes
+  - name: Add static DHCP leases to DNS resolver
+    community.general.xml:
+      path: /tmp/pfsense/config.xml
+      xpath: /pfsense/unbound/regdhcpstatic
+      value: ""
+      pretty_print: yes

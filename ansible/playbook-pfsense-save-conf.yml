@@ -1,0 +1,5 @@
+- name: Save pfSense conf
+  hosts: pfsense
+  tasks:
+    - name: Remove /tmp/config.cache
+      shell: rm /tmp/config.cache

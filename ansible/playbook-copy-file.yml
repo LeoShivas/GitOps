@@ -1,0 +1,10 @@
+- name: Copy file
+  hosts: "{{ remote }}"
+  tasks:
+  - name: Push file to remote
+    ansible.builtin.copy:
+      src: "{{ source }}"
+      dest: "{{ destination }}"
+      owner: "{{ user }}"
+      group: "{{ grp }}"
+      mode: "{{ permissions }}"

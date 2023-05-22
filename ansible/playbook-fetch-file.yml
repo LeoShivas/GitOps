@@ -1,0 +1,9 @@
+- name: Fetch file
+  hosts: "{{ remote }}"
+  become: false
+  tasks:
+  - name: Retrieve file on localhost
+    ansible.builtin.fetch:
+      src: "{{ source }}"
+      dest: "{{ destination }}"
+      flat: yes
