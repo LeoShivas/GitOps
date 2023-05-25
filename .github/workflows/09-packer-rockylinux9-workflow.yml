@@ -1,12 +1,23 @@
 name: 09 Create Rocky template with Packer workflow
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [08 Configure pfSense]
+    types: [completed]
 jobs:
   packer-rocky:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
       name: Checkout repository
+    - name: Import ADM SSH private key
+      env:
+        SSH_PRI: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+      run: |
+        mkdir ~/.ssh
+        echo "$SSH_PRI" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+      shell: bash
     - name: Packer init
       run: packer init packer/proxmox-rocky.pkr.hcl
       env:
@@ -19,6 +30,13 @@ jobs:
         PROXMOX_TOKEN: ${{ secrets.PROXMOX_ADM_TOKEN_SECRET }}
         PKR_VAR_iso_url: ${{ vars.ROCKY9_ISO_URL }}
         PKR_VAR_iso_checksum: ${{ vars.ROCKY9_ISO_CHECKSUM }}
-        PKR_VAR_pkr_pwd: ${{ secrets.PACKER_ADM_PWD }}
-        PKR_VAR_pkr_username: ${{ secrets.PACKER_ADM_NAME }}
+        PKR_VAR_adm_pwd: ${{ secrets.ADM_PWD }}
+        PKR_VAR_adm_username: ${{ secrets.ADM_NAME }}
+        PKR_VAR_adm_ssh_public_key: ${{ secrets.ADM_SSH_PUBLIC_KEY }}
         PKR_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        PKR_VAR_github_token: ${{ secrets.GH_TOKEN_PKR }}
+        PKR_VAR_github_repo: ${{ github.repository }}
+        PKR_VAR_github_ref_name: ${{ github.ref_name }}
+        PKR_VAR_bind_ip_address: ${{ secrets.OVH_VIRTUAL_IP }}
+        PKR_VAR_bind_ssh_port: ${{ secrets.PFSENSE_SSH_PORT }}
+        PKR_VAR_bind_ssh_user: ${{ secrets.ADM_NAME }}
