@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'ansible/playbook-pfsense-configuration.yml'
+  workflow_run:
+    workflows: [07 Deploy pfSense workflow]
+    types: [completed]
 jobs:
   configure-pfsense:
     runs-on: ubuntu-latest
