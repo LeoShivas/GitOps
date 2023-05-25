@@ -3,3 +3,5 @@
   tasks:
     - name: Remove /tmp/config.cache
       shell: rm /tmp/config.cache
+    - name: Reload some pfSense stuff
+      shell: /etc/rc.reload_all
