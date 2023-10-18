@@ -1,66 +1,83 @@
-# Prerequisites
-If you want to manage the servers in a GitOps way, you have to create several SSH keys :
-* one for the `root` user on the [dedicated OVH bare metal server](https://www.ovhcloud.com/fr/bare-metal/)
-  * this key will used only once, for creating the Ansible user
-* one for the dedicated Ansible user on all machines
-* one for the pfSense admin user
+# GitOps
 
-## SSH keys creation
-You can create a SSH key on a temporay Linux VM machine with the following commands :
-```
-ssh-keygen
-```
+This project is the result of my will to automate all I can on my personal private infrastructure.
 
-Example :
-```
-Generating public/private rsa key pair.
-Enter file in which to save the key (/root/.ssh/id_rsa):
-Created directory '/root/.ssh'.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in /root/.ssh/id_rsa
-Your public key has been saved in /root/.ssh/id_rsa.pub
-The key fingerprint is:
-SHA256:gsl5L6M5FV/O94GETrtrCFiyN31+6sM0LQvx9VK5lhk root@140ed833282e
-The key's randomart image is:
-+---[RSA 3072]----+
-|                 |
-|                 |
-|           .   . |
-|   ..+o . + o E  |
-|    ==o+SO = + = |
-|    o.=o+ @ = B  |
-|     ooo.B * + . |
-|    .o o. B . .  |
-|    o.   o+=     |
-+----[SHA256]-----+
-```
+Until now, I used a physical VMware server with traditional n-tier VMs architecture, managed by myself from several years (a decade ?).
 
-This will create two files named `id_rsa` (private key) and `id_rsa.pub` (public key):
-```
-root@140ed833282e:~# ls -l /root/.ssh
-total 8
--rw------- 1 root root 2602 Feb 16 22:24 id_rsa
--rw-r--r-- 1 root root  571 Feb 16 22:24 id_rsa.pub
-root@140ed833282e:~#
-```
+As I've discovered the DevOps culture and all the automation stuff in my profesional career, I wanted to update this old hosting way.
 
-You have to do this action as much as you need SSH key. So, feel free to change the name when you can (example : `/root/.ssh/root_rsa` and `/root/.ssh/ansible_rsa`).
+So, I've decided this :
+* Keep a unique physical server with a good ratio disk space / price.
+  * I've chosen a [dedicated So You Start (from OVH) bare metal server](https://eco.ovhcloud.com/fr/) with 4x2To disks.
+* Use an open source hypervisor
+  * I've chosen [Proxmox](https://www.proxmox.com/en/), highly recommended by several work colleagues.
+  * This hypervisor is one of the basic ones offered by OVH
+
+The objective of this infrastructure is to host solutions for personal and private use, on the one hand, and, above all, to train myself every day on new IT products, on the other hand.
+
+Currently, I am preparing to pass the [CKA certification (Certified Kubernetes Administrator)](https://training.linuxfoundation.org/certification/certified-kubernetes-administrator-cka/). So I'm delving deeper into each aspect of the Kubernetes training that I followed several weeks ago.
+
+## Used technologies
+The code in this repository is structured around the following technologies :
+* Virtualization
+  * Proxmox : https://www.proxmox.com/en/
+* [CI/CD](https://www.redhat.com/en/topics/devops/what-is-ci-cd)
+  * GitHub Actions : https://docs.github.com/en/actions
+* Interact with OVH API
+  * Python : https://www.python.org/
+* Manage and automate systems configurations
+  * Ansible : https://www.ansible.com/
+  * Kickstart : [https://access.redhat.com/...kickstart](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html-single/performing_an_advanced_rhel_9_installation/index#performing_an_automated_installation_using_kickstart)
+  * cloud-init : https://cloudinit.readthedocs.io/en/latest/
+* Routing and Firewalling
+  * pfSense : https://www.pfsense.org/
+* Infrastructure As Code
+  * Terraform : https://www.terraform.io/
+* Templating
+  * Packer : https://www.packer.io/
+* Container Orchestration
+  * Kubernetes : https://kubernetes.io/
+* Kubernetes Management
+  * k9s : https://k9scli.io/
+* Kubernetes package manager
+  * Helm : https://helm.sh/
+* Kubernetes CNI
+  * Cilium : https://cilium.io/
+* Kubernetes CSI
+  * Proxmox : https://github.com/sergelogvinov/proxmox-csi-plugin
+
+## Repository organization
+This repository is organized following this way :
+* [.github](.github) folder
+  * This folder constains all the GitHub Actions workflows
+  * All the content of this folder relies on the other folders
+* [ansible](ansible), [kickstart](kickstart), [packer](packer), [python](python) and [terraform](terraform) folders
+  * These folders respectively contain all their files related own technology stuff
+  * All scripts in these folder are orchestrated by the GitHub Actions workflows
+* Several repository secrets
+  * These secrets are injected as environment variables in the GitHub Actions workflows
+* Some repository variables
+  * These variables are injected as environment variables in the GitHub Actions workflows
 
 ## Secrets creation
-By following the [official GitHub documentation](https://docs.github.com/fr/actions/security-guides/encrypted-secrets), create the following secrets :
+By following the [official GitHub documentation](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-an-environment), create the following secrets :
+* ADM_MAIL
+  * The mail address of the Ansible account
 * ADM_NAME
   * The name you want to give to the Ansible account
 * ADM_PWD
   * The Ansible account password
 * ADM_SSH_PRIVATE_KEY
-  * The content of the Ansible SSH private key file (ie: `/root/.ssh/ansible_rsa`)
+  * The content of the Ansible SSH private key file (ie: the `/root/.ssh/ansible_rsa` content)
 * ADM_SSH_PUBLIC_KEY
-  * The content of the Ansible SSH public key file (ie: `/root/.ssh/ansible_rsa.pub`)
+  * The content of the Ansible SSH public key file (ie: the `/root/.ssh/ansible_rsa.pub` content)
 * GH_TKN_SCECRETS_WRITE
   * A GitHub token generated in [Personal access token page](https://github.com/settings/tokens?type=beta) with the `Read access to metadata` and the `Read and Write access to secrets` repository permissions. Follow the [official GitHub documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) for more information.
 * GH_TOKEN_PKR
   * A GitHub Personal Access Token dedicated to Packer build
+* K8S_ENDPOINT
+  * The FQDN of the Kubernetes endpoint you want to have
+  * I set these FQDN in HAproxy in the pfSense in order to have a TCP proxy in front of the Kubernetes control plane nodes
 * MAIL_PASSWORD
   * The password used to authenticate to the smtp server
 * MAIL_USERNAME
@@ -116,34 +133,143 @@ By following the [official GitHub documentation](https://docs.github.com/fr/acti
 * TERRAFORM_USR_TOKEN_SECRET
   * The Terraform token secret to use
 
-# Install OVH dedicated server
+## Variables creation
+By following the [official GitHub documentation](https://docs.github.com/en/actions/learn-github-actions/variables#creating-configuration-variables-for-a-repository), create the following variables :
+* CI_ROCKY9_ISO_URL
+  * The URL of the cloud-init image to use
+  * ie: http://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2
+* OVH_ENDPOINT
+  * The OVH API endpoint to use
+  * ie: ovh-eu
+* OVH_TEMPLATE
+  * The name the cloned OVH template to give to
+  * ie: proxmox7_64_raid5
+* PFSENSE_ISO_CHECKSUM
+  * The checksum of the pfSense template
+  * ie: sha256:941a68c7f20c4b635447cceda429a027f816bdb78d54b8252bb87abf1fc22ee3
+* PFSENSE_ISO_FILE
+  * The base filename of the pfSense ISO file
+  * ie: pfSense-CE-2.6.0-RELEASE-amd64.iso
+* PFSENSE_ISO_URL
+  * The pfSense ISO file URL to download from
+  * ie: https://atxfiles.netgate.com/mirror/downloads/pfSense-CE-2.6.0-RELEASE-amd64.iso.gz
+* ROCKY9_ISO_CHECKSUM
+  * The checksum of the Rocky 9 ISO file
+  * ie: sha256:bae6eeda84ecdc32eb7113522e3cd619f7c8fc3504cb024707294e3c54e58b40
+* ROCKY9_ISO_URL
+  * The Rocky 9 ISO file URL to download from
+  * ie: https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.1-x86_64-minimal.iso
+* TEMPLATE_IP_ADDRESS (obsolete)
+  * The IP of the Rocky Packer template (replaced by the cloud-init template)
+* TEMPLATE_IP_DNS
+  * The DNS IP of the Rocky cloud-init template to use
+  * ie: 192.168.1.1
+* TEMPLATE_IP_GTW
+  * The gateway IP of the Rocky cloud-init template to use
+  * ie: 192.168.1.1
+* TEMPLATE_IP_MASK
+  * The mask network of the Rocky cloud-init template to use
+  * ie: 255.255.255.0
 
-# Create Ansible user on OVH dedicated server
-In order to create the Ansible user on the remote servers, you have to define all the hosts in the `all` section in the `hosts.yml` inventory file.
-Then, go the Action tab in GitHub and launch the "Install Ansible user" workflow.
-This is how it works :
-* The workflow is defined by the [.github/workflows/02-ansible-install-ansible-user-workflow.yml](.github/workflows/02-ansible-install-ansible-user-workflow.yml) file
-* It uses the [.github/workflows/action-install-ansible/action.yml](.github/workflows/action-install-ansible/action.yml) file, which contains the Ansible install GitHub composite action
-  * This action installs :
-    * Python
-    * Ansible
-    * the SSH key given in input
-    * the Ansible configuration needed
-  * This file can be reused at any time
-* It uses the [ansible/playbook-install-proxmox-user.yml](ansible/playbooks/proxmox/playbook-install-proxmox-user.yml) Ansible playbook in order to create the Proxmox user on the remote servers
-* It uses the [ansible/playbook-create-proxmox-user-token.yml](ansible/playbooks/playbook-create-proxmox-user-token.yml) Ansible playbook in order to create a Proxmox token and retrieve it
-* Then, it store the previously created token in the `PROXMOX_USR_TOKEN_SECRET` GitHub action secret
+## Local play
+In order to bypass the GitHub runner and buy some time, you can run manually all the scripts (except those from the [.github](.github) folder). Here is what I added to my `~/.bashrc` file :
+```
+# OVH variables
+export OVH_ENDPOINT=xxxxxxxxxxxxxxxx
+export OVH_APPLICATION_KEY=xxxxxxxxxxxxxxxx
+export OVH_APPLICATION_SECRET=xxxxxxxxxxxxxxxx
+export OVH_CONSUMER_KEY=xxxxxxxxxxxxxxxx
+export OVH_PROXMOX_SERVER=xxxxxxxxxxxxxxxx
+export OVH_TEMPLATE=xxxxxxxxxxxxxxxx
+export OVH_CUSTOM_HOSTNAME=xxxxxxxxxxxxxxxx
+export OVH_SSH_KEY_NAME=xxxxxxxxxxxxxxxx
+export OVH_VIRTUAL_IP=xxxxxxxxxxxxxxxx
+export OVH_ROOT_PWD=xxxxxxxxxxxxxxxx
+export PROXMOX_FQDN=xxxxxxxxxxxxxxxx
 
-# Create Proxmox admin user on OVH dedicated server
+# Proxmox
+export PROXMOX_USER=xxxxxxxxxxxxxxxx
+export PROXMOX_TOKEN_ID=xxxxxxxxxxxxxxxx
+export PROXMOX_TOKEN_SECRET=xxxxxxxxxxxxxxxx
 
-# Download pfSense ISO
+# Ansible
+export ADM_USR=xxxxxxxxxxxxxxxx
+export ADM_MAIL=xxxxxxxxxxxxxxxx
+export ANSIBLE_STDOUT_CALLBACK=debug
+export QCOW2_URL="http://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2"
 
-# Create Terraform Proxmox user
+# Packer
+export PROXMOX_URL=xxxxxxxxxxxxxxxx
+export PROXMOX_USERNAME=xxxxxxxxxxxxxxxx
+export PROXMOX_TOKEN=xxxxxxxxxxxxxxxx
+export PKR_VAR_prx_node=xxxxxxxxxxxxxxxx
+export PACKER_GITHUB_API_TOKEN=xxxxxxxxxxxxxxxx
+export PKR_VAR_adm_username=xxxxxxxxxxxxxxxx
+export PKR_VAR_adm_ssh_public_key="ssh-rsa AAAAB3xxxxxxxxxxxxxxxxc= xxxxxxxxxxxxxxxx@xxxxxxxxxxxxxxxx"
+export PKR_VAR_github_token=xxxxxxxxxxxxxxxx
+export PKR_VAR_github_repo="LeoShivas/xxxxxxxxxxxxxxxx"
+export PKR_VAR_github_ref_name="main"
+export PKR_VAR_bind_ip_address=xxxxxxxxxxxxxxxx
+export PKR_VAR_bind_ssh_port=xxxxxxxxxxxxxxxx
+export PKR_VAR_bind_ssh_user=xxxxxxxxxxxxxxxx
+export PKR_VAR_adm_pwd=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_address=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_gtw=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_mask=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_dns=xxxxxxxxxxxxxxxx
 
-# Create pfSense VM template
+# Packer pfSense
+export PKR_VAR_iso_file="pfSense-CE-2.6.0-RELEASE-amd64.iso"
+export PKR_VAR_virtual_mac=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_address=xxxxxxxxxxxxxxxx
+export PKR_VAR_ip_gateway=xxxxxxxxxxxxxxxx
+export PKR_VAR_pfsense_adm_pwd=xxxxxxxxxxxxxxxx
+export PKR_VAR_pfsense_ssh_port=xxxxxxxxxxxxxxxx
+export PKR_VAR_pfsense_adm_ssh_public_key="ssh-rsa AAAABxxxxxxxxxxxxxxxxc="
+export PKR_VAR_ansible_usr_pwd=xxxxxxxxxxxxxxxx
 
-# Deploy pfSense VM
+# Terraform
+export TF_CLOUD_ORGANIZATION=xxxxxxxxxxxxxxxx
+export TF_WORKSPACE=xxxxxxxxxxxxxxxx
+export TF_TOKEN_app_terraform_io=xxxxxxxxxxxxxxxx
+export PM_API_URL=xxxxxxxxxxxxxxxx
+export PM_API_TOKEN_ID=xxxxxxxxxxxxxxxx
+export PM_API_TOKEN_SECRET=xxxxxxxxxxxxxxxx
+export TF_VAR_prx_node=xxxxxxxxxxxxxxxx
+export TF_VAR_ip_dns=xxxxxxxxxxxxxxxx
+export TF_VAR_mac_address=xxxxxxxxxxxxxxxx
+export TF_VAR_adm_pwd=xxxxxxxxxxxxxxxx
+export TF_VAR_adm_private_key="-----BEGIN OPENSSH PRIVATE KEY-----
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxx==
+-----END OPENSSH PRIVATE KEY-----"
+export TF_VAR_adm_username=xxxxxxxxxxxxxxxx
+export TF_VAR_bind_ip_address=xxxxxxxxxxxxxxxx
+export TF_VAR_bind_ssh_port=xxxxxxxxxxxxxxxx
+export TF_VAR_bind_ssh_private_key="-----BEGIN OPENSSH PRIVATE KEY-----
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxx==
+-----END OPENSSH PRIVATE KEY-----"
+export TF_VAR_bind_ssh_user=xxxxxxxxxxxxxxxx
+export TF_VAR_kube_cp_count=3
+export TF_VAR_kube_wk_count=3
+export TF_VAR_template_ip_address=xxxxxxxxxxxxxxxx
+export TF_VAR_root_private_key="-----BEGIN OPENSSH PRIVATE KEY-----
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxx=
+-----END OPENSSH PRIVATE KEY-----"
 
-# Create Ansible pfSense user
+# Packer Rocky
+export PKR_VAR_iso_url="https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.1-x86_64-minimal.iso"
+export PKR_VAR_iso_checksum="sha256:bae6eeda84ecdc32eb7113522e3cd619f7c8fc3504cb024707294e3c54e58b40"
 
-# Create Rocky Linux VM template
+# Kubernetes
+export K8S_ENDPOINT=xxxxxxxxxxxxxxxx
+```
+You should update all the values.
