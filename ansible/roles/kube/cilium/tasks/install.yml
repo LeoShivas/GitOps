@@ -1,0 +1,32 @@
+---
+- name: Cilium installation block
+  block:
+
+  - name: Add cilium helm repository
+    kubernetes.core.helm_repository:
+      name: cilium
+      repo_url: "https://helm.cilium.io/"
+
+  - name: Retreive cilium CNI version
+    shell: curl -s https://raw.githubusercontent.com/cilium/cilium/main/stable.txt
+    register: cilium_version
+    changed_when: false
+
+  - name: Install cilium chart
+    kubernetes.core.helm:
+      name: cilium
+      namespace: kube-system
+      chart_ref: cilium/cilium
+      chart_version: "{{ cilium_version.stdout }}"
+      values:
+        hubble:
+          relay:
+            enabled: true
+          ui:
+            enabled: true
+          tls:
+            auto:
+              enabled: true
+              method: cronJob
+
+  become: no

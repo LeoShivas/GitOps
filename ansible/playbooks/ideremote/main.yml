@@ -1,0 +1,26 @@
+---
+- name: Manage ideremote
+  hosts: ideremote
+  tasks:
+  - name: Get tfswitch latest version
+    shell: curl -I https://github.com/warrensbox/terraform-switcher/releases/latest 2>&1|grep ^location:|awk -F/ '{print $NF}'
+    register: tfswitch_latest_version
+    changed_when: false
+  - name: Get and install tfswitch
+    unarchive:
+      src: https://github.com/warrensbox/terraform-switcher/releases/download/{{ tfswitch_latest_version.stdout }}/terraform-switcher_{{ tfswitch_latest_version.stdout }}_linux_amd64.tar.gz
+      dest: /usr/local/bin
+      owner: root
+      group: root
+      remote_src: yes
+      extra_opts:
+        - --no-anchored
+        - tfswitch
+  - name: Set VIM options
+    lineinfile:
+      path: /etc/virc
+      line: |
+        set autoindent
+        set expandtab
+        set tabstop=2
+        set shiftwidth=2

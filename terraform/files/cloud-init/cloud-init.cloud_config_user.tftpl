@@ -1,0 +1,31 @@
+#cloud-config
+hostname: ${hostname}
+fqdn: ${hostname}
+manage_resolv_conf: true
+user: ${user}
+password: ${password}
+ssh_authorized_keys:
+  - ${ssh_authorized_keys}
+chpasswd:
+  expire: False
+timezone: Europe/Paris
+locale: fr_FR.UTF-8
+keyboard:
+  layout: fr
+  variant: oss
+package_upgrade: false
+packages:
+  - qemu-guest-agent
+  - firewalld
+  - bash-completion
+runcmd:
+  - sudo nmcli d disconnect eth0 && sleep 2 && sudo nmcli d connect eth0
+  - sudo systemctl enable --now firewalld
+output:
+  init:
+    output: "> /var/log/cloud-init.out"
+    error: "> /var/log/cloud-init.err"
+  config: "tee -a /var/log/cloud-config.log"
+  final:
+    - ">> /var/log/cloud-final.out"
+    - "/var/log/cloud-final.err"

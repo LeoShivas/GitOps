@@ -1,0 +1,57 @@
+- name: Check if Kubernetes is already initialized
+  shell: kubectl cluster-info
+  register: kubectl_cluster_info
+  changed_when: false
+  failed_when: false
+  become: no
+  ignore_errors: true
+- name: Play if not initialiazed
+  block:
+    - name: Add Kubenertes enpoint to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 {{ kube_endpoint }}"
+    # https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
+    - name: Create init conf file (for adding serverTLSBootstrap option)
+      copy:
+        dest: /etc/kubernetes/kubeadm-init.yaml
+        content: |
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: ClusterConfiguration
+          controlPlaneEndpoint: "{{ kube_endpoint }}:6443"
+          ---
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          kind: KubeletConfiguration
+          serverTLSBootstrap: true
+        mode: 0644
+    - name: Initialize Kubernetes cluster
+      shell: kubeadm init --upload-certs --config /etc/kubernetes/kubeadm-init.yaml | tee kubeadm-init-`date '+%Y-%m-%d_%H-%M-%S'`.out
+    - name: Remove Kubenertes enpoint from /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 {{ kube_endpoint }}"
+        state: absent
+    - name: Create .kube directory
+      become: no
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+    - name: Copy admin.conf to .kube directory
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ ansible_user }}/.kube/config
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        remote_src: true
+        mode: 0600
+    - name: Check if Kubernetes is successfully initialized
+      shell: kubectl cluster-info
+      register: kubectl_cluster_info
+      changed_when: false
+      failed_when: kubectl_cluster_info.rc != 0
+      become: no
+  when: kubectl_cluster_info.rc != 0
+- include_tasks: requirements.yml
+- include_tasks: helm.yml
+- include_tasks: metrics-server.yml
+- include_tasks: kubelet-csr-approver.yml

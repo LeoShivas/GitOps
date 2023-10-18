@@ -1,0 +1,14 @@
+---
+# https://kubernetes.io/docs/reference/networking/ports-and-protocols/
+- name: Open Kubernetes API server port
+  ansible.posix.firewalld:
+    port: "6443/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+- name: Open etcd server client API port
+  ansible.posix.firewalld:
+    port: "2379-2380/tcp"
+    permanent: true
+    state: enabled
+    immediate: true

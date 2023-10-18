@@ -1,0 +1,84 @@
+---
+- name: Copy kubectl config file
+  block:
+  - name: Create .kube directory
+    become: no
+    file:
+      path: /home/{{ ansible_user }}/.kube
+      state: directory
+  - name: Retreive admin.conf from first CP
+    fetch:
+      src: /etc/kubernetes/admin.conf
+      dest: /home/{{ ansible_user }}/.kube/config
+      flat: true
+      mode: 0600
+    delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+    changed_when: false
+  - name: Copy admin.conf to .kube directory
+    copy:
+      src: /home/{{ ansible_user }}/.kube/config
+      dest: /home/{{ ansible_user }}/.kube/config
+      owner: "{{ ansible_user }}"
+      group: "{{ ansible_user }}"
+      mode: 0600
+  when: ansible_hostname != hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
+- name: Get kubectl convert version
+  shell: curl -L -s https://dl.k8s.io/release/stable.txt
+  register: kubectl_convert_version
+  changed_when: false
+- name: Download kubectl convert
+  get_url:
+    url: https://dl.k8s.io/release/{{ kubectl_convert_version.stdout }}/bin/linux/amd64/kubectl-convert
+    checksum: sha256:https://dl.k8s.io/{{ kubectl_convert_version.stdout }}/bin/linux/amd64/kubectl-convert.sha256
+    dest: /usr/local/bin/kubectl-convert
+    owner: root
+    group: root
+    mode: 0755
+  when: ansible_architecture == "x86_64"
+- name: Install git
+  dnf:
+    name:
+      - git
+    state: present
+    update_cache: yes
+- name: Retrieve kubectx and kubens git repository
+  git:
+    repo: https://github.com/ahmetb/kubectx
+    dest: /opt/kubectx
+    single_branch: yes
+    version: master
+- name: Create kubectx and kubens symbolic links
+  file:
+    src: /opt/kubectx/{{ item }}
+    dest: /usr/local/bin/{{ item }}
+    owner: root
+    group: root
+    state: link
+  with_items: [ kubectx, kubens ]
+- name: Create kubectx and kubens bash-completion symbolic links
+  file:
+    src: /opt/kubectx/completion/{{ item }}.bash
+    dest: /etc/bash_completion.d/{{ item }}
+    owner: root
+    group: root
+    state: link
+  with_items: [ kubectx, kubens ]
+- name: Get k9s latest version
+  shell: curl -I https://github.com/derailed/k9s/releases/latest 2>&1|grep ^location:|awk -F/ '{print $NF}'
+  register: k9s_latest_version
+  changed_when: false
+- name: Download k9s
+  get_url:
+    url: https://github.com/derailed/k9s/releases/download/{{ k9s_latest_version.stdout }}/k9s_Linux_amd64.tar.gz
+    dest: /tmp/k9s_Linux_amd64_{{ k9s_latest_version.stdout }}.tar.gz
+  when: ansible_architecture == "x86_64"
+- name: Extract k9s
+  unarchive:
+    src: /tmp/k9s_Linux_amd64_{{ k9s_latest_version.stdout }}.tar.gz
+    dest: /usr/local/bin
+    owner: root
+    group: root
+    remote_src: yes
+    extra_opts:
+      - --no-anchored
+      - k9s

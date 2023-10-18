@@ -1,0 +1,81 @@
+---
+- name: Check existing account
+  shell: pvenode acme account list | grep "{{ lookup('env','ADM_USR') }}"
+  register: acme_account
+  failed_when: acme_account.rc == 2
+  changed_when: acme_account.rc == 1
+- name: Install pip3
+  apt:
+    name: python3-pip
+    state: present
+  when: acme_account.rc == 1
+- name: Install pexpect
+  pip:
+    name: pexpect
+    state: present
+  when: acme_account.rc == 1
+- name: Create account if absent
+  expect:
+    command: pvenode acme account register {{ lookup('env','ADM_USR') }} {{ lookup('env','ADM_MAIL') }} -directory https://acme-v02.api.letsencrypt.org/directory
+    responses:
+      'Do you agree to the above terms': y
+  when: acme_account.rc == 1
+- name: Remove pexpect
+  pip:
+    name: pexpect
+    state: absent
+  when: acme_account.rc == 1
+- name: Remove pip3
+  apt:
+    name: python3-pip
+    state: absent
+  when: acme_account.rc == 1
+- name: Check existing Acme dns plugin
+  shell: pvenode acme plugin list -type dns --noborder --noheader | grep ovh
+  register: acme_plugin
+  failed_when: acme_plugin.rc == 2
+  changed_when: acme_plugin.rc == 1
+- name: Create temp file with OVH API credentials
+  tempfile:
+  register: ovh_credentials
+  when: acme_plugin.rc == 1
+- name: Write OVH API credentials to temp file
+  copy:
+    dest: "{{ ovh_credentials.path }}"
+    content: |
+      OVH_AK={{ lookup('env','OVH_APPLICATION_KEY') }}
+      OVH_AS={{ lookup('env','OVH_APPLICATION_SECRET') }}
+      OVH_CK={{ lookup('env','OVH_CONSUMER_KEY') }}
+  when: acme_plugin.rc == 1
+- name: Install OVH Acme dns plugin
+  shell: pvenode acme plugin add dns ovh --api ovh --data "{{ ovh_credentials.path }}"
+  when: acme_plugin.rc == 1
+- name: Remove temp file with OVH API credentials
+  file:
+    path: "{{ ovh_credentials.path }}"
+    state: absent
+  when: ovh_credentials.path is defined
+- name: Check if Acme account is set
+  shell: pvenode config get -property acme|grep account="{{ lookup('env','ADM_USR') }}"
+  register: acme_account
+  failed_when: acme_account.rc == 2
+  changed_when: acme_account.rc == 1
+- name: Set Acme account
+  shell: pvenode config set --acme account="{{ lookup('env','ADM_USR') }}"
+  when: acme_account.rc == 1
+- name: Check existing Acme domain 0
+  shell: pvenode config get -property acmedomain0|grep acmedomain0
+  register: acme_domain
+  failed_when: acme_domain.rc == 2
+  changed_when: acme_domain.rc == 1
+- name: Set Acme domain 0 to use ovh plugin
+  shell: pvenode config set -acmedomain0 "{{ lookup('env','PROXMOX_FQDN') }}",plugin=ovh
+  when: acme_domain.rc == 1
+- name: Check existing external certificate
+  shell: ls /etc/pve/local/pveproxy-ssl.pem|grep /etc/pve/local/pveproxy-ssl.pem
+  register: acme_cert
+  failed_when: acme_cert.rc == 2
+  changed_when: acme_cert.rc == 1
+- name: Order certificate
+  shell: pvenode acme cert order
+  when: acme_cert.rc == 1

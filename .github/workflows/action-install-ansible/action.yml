@@ -19,10 +19,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-  - name: Set up Python 3.11
+  - name: Set up Python 3.12
     uses: actions/setup-python@v4
     with:
-      python-version: 3.11
+      python-version: 3.12
   - name: Install dependencies
     run: |
       python -m pip install --upgrade pip
@@ -46,6 +46,7 @@ runs:
       cat << EOF > ~/.ansible.cfg
       [defaults]
       inventory = $(pwd)/ansible/hosts.yml
+      roles_path = $(pwd)/ansible/roles
       remote_user = ${SSH_USR}
       remote_port = ${SSH_PORT}
       host_key_checking = False
@@ -53,5 +54,5 @@ runs:
       [privilege_escalation]
       become = True
       [ssh_connection]
-      ssh_common_args = "-o ProxyCommand='ssh -o StrictHostKeyChecking=no -p ${SSH_PORT} -W %h:%p -q ${SSH_USR}@${SSH_IP}'"
+      ssh_common_args = -o ProxyCommand="ssh -o StrictHostKeyChecking=no -p ${SSH_PORT} -W %h:%p -q ${SSH_USR}@${SSH_IP}"
       EOF

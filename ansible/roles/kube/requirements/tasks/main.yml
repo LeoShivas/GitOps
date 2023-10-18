@@ -1,0 +1,8 @@
+---
+- include_tasks: repositories.yml
+- include_tasks: dnf.yml
+- include_tasks: swap.yml
+- include_tasks: kernel.yml
+- include_tasks: containerd.yml
+- include_tasks: kubernetes.yml
+- include_tasks: firewalld.yml

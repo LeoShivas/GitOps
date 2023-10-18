@@ -1,0 +1,9 @@
+---
+# handlers file for cp
+- name: Restart containerd
+  service:
+    name: containerd
+    state: restarted
+- name: Daemon Reload
+  systemd:
+    daemon_reload: yes

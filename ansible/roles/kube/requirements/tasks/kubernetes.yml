@@ -1,0 +1,44 @@
+---
+# https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-using-native-package-management
+- name: install kubernetes
+  dnf:
+    name:
+      - kubelet-1.27.3
+      - kubeadm-1.27.3
+      - kubectl-1.27.3
+    disable_excludes: kubernetes
+    state: present
+    update_cache: yes
+  notify: Daemon Reload
+- name: enable kubelet
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+- name: Get kubectl completion
+  shell: kubectl completion bash
+  register: kubectl_completion_script
+  changed_when: false
+- name: Create kubectl completion script file
+  file:
+    path: /etc/bash_completion.d/kubectl
+    state: touch
+    mode: a+r
+    modification_time: preserve
+    access_time: preserve
+- name: Retrieve kubectl completion script content
+  slurp:
+    src: /etc/bash_completion.d/kubectl
+  register: kubectl_completion_script_file
+- name: Write kubectl completion script
+  copy:
+    dest: /etc/bash_completion.d/kubectl
+    content: "{{ kubectl_completion_script.stdout }}"
+  when: kubectl_completion_script.stdout != kubectl_completion_script_file.content
+- name: Write kubectl profile script
+  copy:
+    dest: /etc/profile.d/kubectl.sh
+    content: |
+      alias k=kubectl
+      complete -o default -F __start_kubectl k
+    mode: a+r

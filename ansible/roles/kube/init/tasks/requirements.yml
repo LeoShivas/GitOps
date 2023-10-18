@@ -1,0 +1,19 @@
+---
+- name: install pip3 and git
+  dnf:
+    name:
+      - python3-pip
+      - git
+    state: present
+    update_cache: yes
+
+## Requires the kubernetes, PyYAML and jsonpatch Python modules
+## pip install kubernetes PyYAML jsonpatch
+## https://docs.ansible.com/ansible/latest/collections/kubernetes/core/k8s_module.html#ansible-collections-kubernetes-core-k8s-module-requirements
+- name: Install k8s module requirements
+  pip:
+    name:
+      - kubernetes >= 12.0.0
+      - PyYAML >= 3.11
+      - jsonpatch
+    state: present

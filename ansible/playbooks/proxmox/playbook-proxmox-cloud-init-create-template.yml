@@ -1,0 +1,73 @@
+- name: Create cloud init Proxmox template
+  hosts: localhost
+  environment:
+    PROXMOX_USER: "{{ lookup('env','PROXMOX_USER') }}"
+  vars:
+    PROXMOX_FQDN: "{{ lookup('env','PROXMOX_FQDN') }}"
+    PROXMOX_HOST: "{{ lookup('env','OVH_CUSTOM_HOSTNAME') }}"
+    PROXMOX_TOKEN_ID: "{{ lookup('env','PROXMOX_TOKEN_ID') }}"
+    PROXMOX_TOKEN_SECRET: "{{ lookup('env','PROXMOX_TOKEN_SECRET') }}"
+    PROXMOX_ROOT_PWD: "{{ lookup('env','OVH_ROOT_PWD') }}"
+    qcow2_filename: "{{ lookup('env','QCOW2_URL') | split('/') | last }}"
+  tasks:
+    - name: Create VM
+      community.general.proxmox_kvm:
+        api_host: "{{ PROXMOX_FQDN }}"
+        api_token_id: "{{ PROXMOX_TOKEN_ID }}"
+        api_token_secret: "{{ PROXMOX_TOKEN_SECRET }}"
+        node: "{{ PROXMOX_HOST }}"
+        name: cirocky9tpl
+        state: present
+        memory: 2048
+        description: "Cloud init Rocky 9 template"
+        net:
+          net0: virtio,bridge=vmbr1
+        ide:
+          ide2: local:cloudinit
+        scsihw: virtio-scsi-single
+    - name: Add disk to VM
+      community.general.proxmox_disk:
+        api_host: "{{ PROXMOX_FQDN }}"
+        api_user: root@pam
+        api_password: "{{ PROXMOX_ROOT_PWD }}"
+        name: cirocky9tpl
+        disk: scsi0
+        storage: local
+        import_from: "/var/lib/vz/template/iso/{{ qcow2_filename }}"
+    - name: Sleep for 10 seconds and continue with play
+      ansible.builtin.wait_for:
+        timeout: 10
+      delegate_to: localhost
+    - name: Increase disk size
+      community.general.proxmox_disk:
+        api_host: "{{ PROXMOX_FQDN }}"
+        api_token_id: "{{ PROXMOX_TOKEN_ID }}"
+        api_token_secret: "{{ PROXMOX_TOKEN_SECRET }}"
+        name: cirocky9tpl
+        state: resized
+        disk: scsi0
+        size: 50G
+    - name: Update VM
+      community.general.proxmox_kvm:
+        api_host: "{{ PROXMOX_FQDN }}"
+        api_token_id: "{{ PROXMOX_TOKEN_ID }}"
+        api_token_secret: "{{ PROXMOX_TOKEN_SECRET }}"
+        node: "{{ PROXMOX_HOST }}"
+        name: cirocky9tpl
+        state: present
+        update: true
+        boot: order=scsi0
+        serial:
+          serial0: socket
+        vga: serial0
+    - name: Convert VM to template
+      community.general.proxmox_kvm:
+        api_host: "{{ PROXMOX_FQDN }}"
+        api_token_id: "{{ PROXMOX_TOKEN_ID }}"
+        api_token_secret: "{{ PROXMOX_TOKEN_SECRET }}"
+        node: "{{ PROXMOX_HOST }}"
+        name: cirocky9tpl
+        state: present
+        update: true
+        template: true
+        description: "Cloud init Rocky 9 template created on {{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"

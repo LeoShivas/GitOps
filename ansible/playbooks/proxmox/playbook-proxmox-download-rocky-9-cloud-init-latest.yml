@@ -1,0 +1,12 @@
+- name: Download qcow2 image
+  hosts: proxmox
+  vars:
+    qcow2_url: "{{ lookup('env','QCOW2_URL') }}"
+    checksum_url: "{{ lookup('env','QCOW2_URL') }}.CHECKSUM"
+    qcow2_filename: "{{ lookup('env','QCOW2_URL') | split('/') | last }}"
+  tasks:
+    - name: Download qcow2 image
+      get_url:
+        url: "{{ qcow2_url }}"
+        dest: "/var/lib/vz/template/iso/{{ qcow2_filename }}"
+        checksum: "sha256:{{ lookup('url', checksum_url ) | split(' ') | last }}"

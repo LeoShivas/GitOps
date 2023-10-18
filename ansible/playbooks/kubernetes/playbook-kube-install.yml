@@ -1,0 +1,35 @@
+---
+- name: Install Kubernetes requirements
+  hosts: kube
+  roles:
+    - kube/requirements
+
+- name: Init Kubernetes cluster
+  hosts: kube_cp
+  vars:
+    kube_endpoint: "{{ lookup('env','K8S_ENDPOINT') }}"
+  roles:
+    - kube/init
+
+- name: Join Kubernetes cluster
+  hosts: kube:!kube_first_cp
+  serial: 1
+  roles:
+    - kube/join
+
+- name: Install Cilium
+  hosts: kube_first_cp
+  roles:
+    - kube/cilium
+
+- name: Install administrative tools
+  hosts: kube_adm
+  roles:
+    - kube/admin
+
+- name: Set UP CSI plugin
+  hosts: kube_first_cp
+  vars:
+    proxmox_url: "{{ lookup('env','PROXMOX_URL') }}"
+  roles:
+    - kube/proxmox-csi-plugin

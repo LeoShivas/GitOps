@@ -1,0 +1,18 @@
+---
+- name: kubelet-csr-approver installation block
+  block:
+
+  - name: Add kubelet-csr-approver helm repository
+    kubernetes.core.helm_repository:
+      name: kubelet-csr-approver
+      repo_url: "https://postfinance.github.io/kubelet-csr-approver"
+
+  - name: Install kubelet-csr-approver chart
+    kubernetes.core.helm:
+      name: kubelet-csr-approver
+      namespace: kube-system
+      chart_ref: kubelet-csr-approver/kubelet-csr-approver
+      values:
+        bypassDnsResolution: True
+
+  become: no

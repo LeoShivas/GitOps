@@ -1,0 +1,36 @@
+name: Setup - 09 - Create Rocky template with cloud-init workflow
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Setup - 08 - Configure pfSense]
+    types: [completed]
+jobs:
+  cloud-init-rocky:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: ${{ secrets.ADM_NAME }}
+        default-ssh-port: ${{ secrets.PFSENSE_SSH_PORT }}
+        default-ssh-ip: ${{ secrets.OVH_VIRTUAL_IP }}
+    - name: Retrieve Rocky 9 cloud-init image
+      env:
+        QCOW2_URL: ${{ vars.CI_ROCKY9_ISO_URL }}
+      run: ansible-playbook ansible/playbooks/proxmox/playbook-proxmox-download-rocky-9-cloud-init-latest.yml
+    - name: Install Proxmox prerequisites
+      run: pip install proxmoxer requests
+    - name: Create Rocky 9 cloud-init template
+      env:
+        PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+        PROXMOX_FQDN: ${{ secrets.PROXMOX_FQDN }}
+        OVH_CUSTOM_HOSTNAME: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        PROXMOX_USER: "${{ secrets.PROXMOX_ADM_NAME }}@pam"
+        PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_ADM_TOKEN_ID }}
+        PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_ADM_TOKEN_SECRET }}
+        OVH_ROOT_PWD: ${{ secrets.OVH_ROOT_PWD }}
+        QCOW2_URL: ${{ vars.CI_ROCKY9_ISO_URL }}
+      run: ansible-playbook ansible/playbooks/proxmox/playbook-proxmox-cloud-init-create-template.yml

@@ -1,0 +1,20 @@
+---
+- name: mertics-server installation block
+  block:
+
+  - name: Add metrics-server helm repository
+    kubernetes.core.helm_repository:
+      name: metrics-server
+      repo_url: "https://kubernetes-sigs.github.io/metrics-server/"
+
+  - name: Install metrics-server chart
+    kubernetes.core.helm:
+      name: metrics-server
+      namespace: metrics-server
+      create_namespace: true
+      chart_ref: metrics-server/metrics-server
+      values:
+        bypassDnsResolution: True
+        replicas: 2
+
+  become: no

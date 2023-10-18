@@ -1,0 +1,19 @@
+- name: Shutdown Kubernetes VMs
+  hosts: proxmox
+  tasks:
+    - name: Retrieve list of kube VMs
+      shell: |
+        grep -irn "^name: kube" /etc/pve/qemu-server|awk -F[/.] '{print $5}'
+      register: vms
+      changed_when: false
+    - debug:
+        var: vms.stdout_lines
+    - name: Stop VMs
+      loop: "{{ vms.stdout_lines }}"
+      shell: |
+       qm stop {{ item }}
+      args:
+        executable: /usr/bin/bash
+      register: result
+      changed_when: result.rc == 254
+      failed_when: result.rc != 254 and result.rc != 0

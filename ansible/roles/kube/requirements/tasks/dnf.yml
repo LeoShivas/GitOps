@@ -1,0 +1,6 @@
+---
+- name: Update and upgrade dnf
+  dnf:
+    name: '*'
+    state: latest
+    update_cache: yes

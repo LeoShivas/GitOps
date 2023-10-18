@@ -79,30 +79,9 @@ variable "ip_address" {
   default = ""
 }
 
-variable "ip_gtw" {
-  type    = string
-  default = ""
-}
-
-variable "ip_mask" {
-  type    = string
-  default = ""
-}
-
-variable "ip_dns" {
-  type    = string
-  default = ""
-}
-
-# https://github.com/hashicorp/packer-plugin-proxmox/blob/main/docs/builders/iso.mdx
-source "proxmox-iso" "main" {
+# https://github.com/hashicorp/packer-plugin-proxmox/blob/main/docs/builders/clone.mdx
+source "proxmox-clone" "main" {
   node                     = var.prx_node
-  iso_download_pve         = true
-  iso_url                  = var.iso_url
-  iso_storage_pool         = "local"
-  iso_checksum             = var.iso_checksum
-  boot_command             = ["<up><tab> ADM_NAME=${var.adm_username} ADM_PWD=${bcrypt(var.adm_pwd)} ADM_SSH_PUBLIC_KEY=${replace(var.adm_ssh_public_key, " ", local.sub_string)} SUB_STRING=${local.sub_string} IP_ADDRESS=${var.ip_address} IP_MASK=${var.ip_mask} IP_GTW=${var.ip_gtw} IP_DNS=${var.ip_dns} inst.cmdline inst.ks=https://${var.github_token}@raw.githubusercontent.com/${var.github_repo}/${var.github_ref_name}/kickstart/ks-rocky9.cfg<enter><wait7m>"]
-  http_directory           = "kickstart"
   insecure_skip_tls_verify = true
   memory                   = 8192
   cores                    = 6
@@ -113,19 +92,16 @@ source "proxmox-iso" "main" {
     model  = "virtio"
     bridge = "vmbr1"
   }
-  disks {
-    disk_size    = "50G"
-    storage_pool = "local"
-    type         = "virtio"
-  }
-  template_name                = "rocky9tpl"
-  template_description         = "Rocky 9.1 x86_64 minimal, generated on ${local.template-date}"
-  unmount_iso                  = true
-  onboot                       = true
+  clone_vm                     = "rocky9tpl"
+  template_name                = "rocky9utdtpl"
+  template_description         = "Rocky 9.1 x86_64 minimal up-to-date, generated on ${local.template-date}"
+  onboot                       = false
+  boot                         = "order=virtio0;ide2;net0"
+  full_clone                   = true
   qemu_agent                   = true
   ssh_username                 = var.adm_username
   ssh_private_key_file         = "~/.ssh/id_rsa"
-  ssh_timeout                  = "10m"
+  ssh_timeout                  = "15m"
   ssh_host                     = var.ip_address
   ssh_bastion_host             = var.bind_ip_address
   ssh_bastion_port             = var.bind_ssh_port
@@ -134,5 +110,10 @@ source "proxmox-iso" "main" {
 }
 
 build {
-  sources = ["source.proxmox-iso.main"]
+  sources = ["source.proxmox-clone.main"]
+  provisioner "shell" {
+    inline = [
+      "sudo dnf update -y",
+    ]
+  }
 }

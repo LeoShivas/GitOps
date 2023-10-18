@@ -1,0 +1,54 @@
+---
+- name: Check join status
+  shell: kubectl get nodes {{ ansible_hostname }}
+  register: join_status
+  delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+  become: no
+  changed_when: false
+  failed_when: false
+- name: Join CP
+  block:
+  - name: Control Planes join command
+    block:
+    - name: Get CP join command
+      shell: kubeadm token create --print-join-command --certificate-key $(sudo kubeadm init phase upload-certs --upload-certs | tail -1)
+      register: join_cp_command
+      become: no
+      delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+      changed_when: false
+    - name: CP join execution
+      shell: "{{ join_cp_command.stdout }} | tee kubeadm-join-`date '+%Y-%m-%d_%H-%M-%S'`.out"
+    when: ansible_hostname in groups['kube_cp']
+  - name: Workers join command
+    block:
+    - name: Get worker join command
+      shell: kubeadm token create --print-join-command
+      register: join_wk_command
+      become: no
+      delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+      changed_when: false
+    - name: Worker join execution
+      shell: "{{ join_wk_command.stdout }} | tee kubeadm-join-`date '+%Y-%m-%d_%H-%M-%S'`.out"
+    when: ansible_hostname in groups['kube_wk']
+  when: join_status.rc != 0
+- name: Post join worker
+  block:
+  - name: Check if node is labeled
+    shell: kubectl get nodes -l 'node-role.kubernetes.io/worker in ()'|grep ^{{ ansible_hostname }}
+    register: node_labels
+    become: no
+    delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+    changed_when: false
+    failed_when: false
+  - name: Labeling node
+    shell: "kubectl label nodes {{ ansible_hostname }} node-role.kubernetes.io/worker="
+    become: no
+    delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+    when: node_labels.rc != 0
+  when: ansible_hostname in groups['kube_wk']
+- name: Check join status
+  shell: kubectl get nodes {{ ansible_hostname }}
+  register: join_status
+  delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
+  become: no
+  changed_when: false

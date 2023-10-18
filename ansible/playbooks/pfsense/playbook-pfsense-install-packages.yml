@@ -1,0 +1,13 @@
+- name: Install pfSense packages
+  hosts: pfsense
+  tasks:
+  - name: Install ACME package
+    package:
+      name:
+      - pfSense-pkg-acme
+      state: present
+  - name: Install HAProxy package
+    package:
+      name:
+      - pfSense-pkg-haproxy
+      state: present

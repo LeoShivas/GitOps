@@ -1,0 +1,76 @@
+name: Setup - 11 - Deploy rocky workflow
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ansible/hosts.yml'
+env:
+  PM_API_URL: ${{ secrets.PROXMOX_URL }}
+  PM_API_TOKEN_ID: "${{ secrets.TERRAFORM_USR_NAME }}@pam!${{ secrets.TERRAFORM_USR_TOKEN_ID }}"
+  PM_API_TOKEN_SECRET: ${{ secrets.TERRAFORM_USR_TOKEN_SECRET }}
+  TF_CLOUD_ORGANIZATION: ${{ secrets.TERRAFORM_CLOUD_ORG }}
+  TF_WORKSPACE: ${{ secrets.TERRAFORM_CLOUD_WORKSPACE }}
+  TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+jobs:
+  terraform-deploy-rocky:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - name: HashiCorp - Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+    - name: Terraform Init
+      working-directory: terraform/main
+      run: terraform init
+    - name: Terraform Validate
+      working-directory: terraform/main
+      run: terraform validate -no-color
+    - name: Terraform Format
+      working-directory: terraform/main
+      run: terraform fmt -check
+      continue-on-error: true
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: ${{ secrets.ADM_NAME }}
+        default-ssh-port: ${{ secrets.PFSENSE_SSH_PORT }}
+        default-ssh-ip: ${{ secrets.OVH_VIRTUAL_IP }}
+    - name: Retrieve the number of CP nodes
+      run: echo TF_VAR_kube_cp_count=$(ansible-playbook ansible/playbooks/ansible/playbook-ansible-get-inventory-group-length.yml | grep host_count | awk -F\" '{print $4}') >> $GITHUB_ENV
+      env:
+        GROUP_NAME: "kube_cp"
+    - name: Retrieve the number of worker nodes
+      run: echo TF_VAR_kube_wk_count=$(ansible-playbook ansible/playbooks/ansible/playbook-ansible-get-inventory-group-length.yml | grep host_count | awk -F\" '{print $4}') >> $GITHUB_ENV
+      env:
+        GROUP_NAME: "kube_wk"
+    - name: Terraform Plan
+      working-directory: terraform/main
+      run: terraform plan -no-color -out tf.plan
+      env:
+        TF_VAR_adm_private_key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        TF_VAR_adm_pwd: ${{ secrets.ADM_PWD }}
+        TF_VAR_adm_username: ${{ secrets.ADM_NAME }}
+        TF_VAR_bind_ip_address: ${{ secrets.OVH_VIRTUAL_IP }}
+        TF_VAR_bind_ssh_port: ${{ secrets.PFSENSE_SSH_PORT }}
+        TF_VAR_bind_ssh_private_key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        TF_VAR_bind_ssh_user: ${{ secrets.ADM_NAME }}
+        TF_VAR_ip_dns: ${{ vars.TEMPLATE_IP_DNS }}
+        TF_VAR_mac_address: ${{ env.VIRTUAL_MAC }}
+        TF_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        TF_VAR_root_private_key: ${{ secrets.OVH_SSH_PRIVATE_KEY }}
+    - name: Terraform Apply
+      working-directory: terraform/main
+      run: terraform apply tf.plan
+      env:
+        TF_VAR_adm_private_key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        TF_VAR_adm_pwd: ${{ secrets.ADM_PWD }}
+        TF_VAR_adm_username: ${{ secrets.ADM_NAME }}
+        TF_VAR_bind_ip_address: ${{ secrets.OVH_VIRTUAL_IP }}
+        TF_VAR_bind_ssh_port: ${{ secrets.PFSENSE_SSH_PORT }}
+        TF_VAR_bind_ssh_private_key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        TF_VAR_bind_ssh_user: ${{ secrets.ADM_NAME }}
+        TF_VAR_ip_dns: ${{ vars.TEMPLATE_IP_DNS }}
+        TF_VAR_mac_address: ${{ env.VIRTUAL_MAC }}
+        TF_VAR_prx_node: ${{ secrets.OVH_CUSTOM_HOSTNAME }}
+        TF_VAR_root_private_key: ${{ secrets.OVH_SSH_PRIVATE_KEY }}

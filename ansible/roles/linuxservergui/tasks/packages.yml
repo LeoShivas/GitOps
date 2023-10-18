@@ -1,0 +1,40 @@
+---
+- name: DNF install EPEL repository
+  dnf:
+    name: epel-release
+    state: present
+    update_cache: true
+- name: DNF install several packages
+  dnf:
+    name:
+      - xrdp
+      - '@Internet Browser'
+    state: present
+    update_cache: true
+- name: DNF install GNOME
+  dnf:
+    name: '@GNOME'
+    state: present
+    update_cache: true
+  notify: Reboot machine
+- name: Set default target to graphical
+  file:
+    src: /usr/lib/systemd/system/graphical.target
+    dest: /etc/systemd/system/default.target
+    owner: root
+    group: root
+    state: link
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+- name: Open XRDP port
+  ansible.posix.firewalld:
+    port: 3389/tcp
+    permanent: true
+    state: "{{ 'enabled' if 'xrdp' in ansible_facts.packages else 'disabled' }}"
+    immediate: true
+- name: Autostart XRDP
+  service:
+    name: xrdp
+    enabled: true
+    state: started

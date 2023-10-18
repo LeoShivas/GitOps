@@ -1,0 +1,6 @@
+---
+- include_tasks: firewalld.yml
+- name: Play all tasks for initializing Kubernetes cluster
+  block:
+  - include_tasks: init.yml
+  when: ansible_hostname == hostvars[ansible_hostname]['groups']['kube_first_cp'][0]

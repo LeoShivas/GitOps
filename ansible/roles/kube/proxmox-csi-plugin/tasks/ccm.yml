@@ -1,0 +1,63 @@
+---
+######## This accounts creation is not scipted yet, so you need to create it manually
+- name: CCM installation block
+  block:
+
+  - name: Install Proxmox CCM chart
+    kubernetes.core.helm:
+      name: proxmox-cloud-controller-manager
+      namespace: kube-system
+      chart_ref: oci://ghcr.io/sergelogvinov/charts/proxmox-cloud-controller-manager
+      values:
+        config:
+          clusters:
+            - url: "{{ proxmox_url }}"
+              insecure: false
+              token_id: "kubernetes@pve!ccm"
+              token_secret: "xxxxxxxxxxxxxxxxxxxxxxxx"
+              region: main
+
+  - name: Create Proxmox CSI namespace
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        api_version: v1
+        kind: Namespace
+        metadata:
+          name: csi-proxmox
+          labels:
+            app.kubernetes.io/managed-by: Helm
+          annotations:
+            meta.helm.sh/release-name: proxmox-csi-plugin
+            meta.helm.sh/release-namespace: csi-proxmox
+
+  - name: Install Proxmox CSI chart
+    kubernetes.core.helm:
+      name: proxmox-csi-plugin
+      namespace: csi-proxmox
+      chart_ref: oci://ghcr.io/sergelogvinov/charts/proxmox-csi-plugin
+      values:
+        config:
+          clusters:
+            - url: "{{ proxmox_url }}"
+              insecure: false
+              token_id: "kubernetes-csi@pve!csi"
+              token_secret: "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+              region: main
+        node:
+          nodeSelector:
+          tolerations:
+            - operator: Exists
+        nodeSelector:
+          node-role.kubernetes.io/control-plane: ""
+        tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            effect: NoSchedule
+        storageClass:
+          - name: proxmox-data
+            storage: local
+            reclaimPolicy: Delete
+            fstype: ext4
+            cache: none
+
+  become: no

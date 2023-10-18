@@ -1,0 +1,15 @@
+- name: Save pfSense conf
+  hosts: pfsense
+  tasks:
+  - name: "pfSense GUI WAN access"
+    pfsense_rule:
+      name: 'pfSense GUI WAN access'
+      action: pass
+      interface: wan
+      ipprotocol: inet
+      protocol: tcp
+      source: any
+      destination: NET:lan
+      destination_port: 4000-5000
+      after: 'Allow Internal DNS traffic out'
+      state: present

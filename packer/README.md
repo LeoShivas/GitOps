@@ -7,4 +7,4 @@ pveum acl modify / -roles Administrator -users myuser
 pveum acl modify / -roles Administrator -tokens 'myuser!mytoken'
 ```
 
-The [ansible/playbook-install-proxmox-user.yml](../ansible/playbook-install-proxmox-user.yml) file gives the needed permissions.
+The [ansible/playbook-install-proxmox-user.yml](../ansible/playbooks/proxmox/playbook-install-proxmox-user.yml) file gives the needed permissions.

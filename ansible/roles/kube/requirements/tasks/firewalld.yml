@@ -1,0 +1,36 @@
+---
+# https://kubernetes.io/docs/reference/networking/ports-and-protocols/
+- name: Open Kubelet API port
+  ansible.posix.firewalld:
+    port: "10250/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+
+# https://docs.cilium.io/en/latest/network/concepts/routing/
+- name: Open vxlan port for cilium
+  ansible.posix.firewalld:
+    port: "8472/udp"
+    permanent: true
+    state: enabled
+    immediate: true
+
+# https://docs.cilium.io/en/stable/operations/system_requirements/#admin-system-reqs
+- name: Open health checks port for cilium
+  ansible.posix.firewalld:
+    port: "4240/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+- name: Open Hubble server port for cilium
+  ansible.posix.firewalld:
+    port: "4244/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+- name: Open Hubble Relay port for cilium
+  ansible.posix.firewalld:
+    port: "4245/tcp"
+    permanent: true
+    state: enabled
+    immediate: true

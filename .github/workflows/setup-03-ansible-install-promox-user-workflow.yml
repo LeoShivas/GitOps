@@ -1,0 +1,46 @@
+name: Setup - 03 - Install Proxmox user
+on:
+  workflow_dispatch:
+jobs:
+  install-proxmox-admin-user:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: ${{ secrets.ADM_NAME }}
+    - name: Install Proxmox user on target
+      id: install-proxmox-usr
+      env:
+        PRX_USR: ${{ secrets.PROXMOX_ADM_NAME }}
+        PRX_TKN_ID: ${{ secrets.PROXMOX_ADM_TOKEN_ID }}
+      run: ansible-playbook ansible/playbooks/proxmox/playbook-proxmox-install-user.yml
+    - name: Create Proxmox user token on target
+      id: create-proxmox-usr-token
+      env:
+        PRX_USR: ${{ secrets.PROXMOX_ADM_NAME }}
+        PRX_TKN_ID: ${{ secrets.PROXMOX_ADM_TOKEN_ID }}
+      run: |
+        token=$(ansible-playbook ansible/playbooks/proxmox/playbook-proxmox-create-user-token.yml | grep msg | awk -F\" '{print $4}')
+        echo "::add-mask::$token"
+        echo "token_secret=$token" >> $GITHUB_OUTPUT
+    - name: Save Proxmox token secret to GitHub secrets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TKN_SCECRETS_WRITE }}
+      run: |
+        gh secret set PROXMOX_ADM_TOKEN_SECRET --body "${{ steps.create-proxmox-usr-token.outputs.token_secret }}"
+    - name: Send Proxmox token secret by email
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        secure: true
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Proxmox user creation workflow job result
+        to: ${{secrets.MAIL_USERNAME}}
+        from: LeoShivas ${{secrets.MAIL_USERNAME}}
+        body: "Here is the new Proxmox user token : ${{ steps.create-proxmox-usr-token.outputs.token_secret }}"

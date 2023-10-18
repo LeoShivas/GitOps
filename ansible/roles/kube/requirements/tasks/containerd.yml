@@ -1,0 +1,25 @@
+---
+- name: install containerd
+  dnf:
+    name:
+      - containerd.io
+    state: present
+    update_cache: yes
+- name: enable containerd
+  systemd:
+    name: containerd
+    enabled: yes
+    state: started
+- name: Retrieve containerd configuration
+  command: containerd config default
+  register: containerd_config
+  changed_when: containerd_config.stdout == ""
+  failed_when: containerd_config.rc != 0
+- name: Save containerd configuration
+  vars:
+    containerd_config_updated: "{{ containerd_config.stdout | regex_replace('(SystemdCgroup = ).*', '\\1true') }}"
+  copy:
+    content: "{{ containerd_config_updated }}"
+    dest: /etc/containerd/config.toml
+  notify: Restart containerd
+  when: containerd_config_updated != containerd_config

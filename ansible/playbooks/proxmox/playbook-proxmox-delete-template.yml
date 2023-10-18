@@ -1,0 +1,36 @@
+- name: Delete Proxmox template(s)
+  hosts: proxmox
+  tasks:
+    - name: Retrieve list of templates
+      shell: |
+        grep -R 'template: 1' /etc/pve/qemu-server/|awk -F".conf:template: 1" '{print $1}'|awk -F/ '{print $NF}'
+      register: templates
+      changed_when: false
+    - name: Retrieve list of VMs matching the template
+      shell: |
+        qm list|grep ' {{ template }} '|awk '{print $1}'
+      register: vms
+      changed_when: false
+    - name: Deletion of the template(s)
+      loop: "{{ templates.stdout_lines }}"
+      shell: |
+        TPL_ID={{ item }}
+        for VM_ID in {{ vms.stdout_lines | regex_replace('[\[\],]', '') }}
+        do
+          if [ "$VM_ID" = "$TPL_ID" ]
+          then
+            echo "Suppression du template $TPL_ID."
+            qm destroy $TPL_ID -destroy-unreferenced-disks -purge
+            if [ $? -eq 0 ]
+            then
+              echo "Suppression du template $TPL_ID réalisée avec succès."
+              exit 254
+            else
+              echo "Erreur lors de la suppression du template $TPL_ID."
+              exit 255
+            fi
+          fi
+        done
+      register: result
+      changed_when: result.rc == 254
+      failed_when: result.rc != 254 and result.rc != 0

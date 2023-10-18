@@ -104,12 +104,12 @@ source "proxmox-iso" "main" {
   os                       = "l26"
   scsi_controller          = "virtio-scsi-single"
   network_adapters {
-    model = "virtio"
+    model       = "virtio"
     bridge      = "vmbr0"
     mac_address = var.virtual_mac
   }
   network_adapters {
-    model = "virtio"
+    model  = "virtio"
     bridge = "vmbr1"
   }
   disks {
@@ -129,7 +129,7 @@ source "proxmox-iso" "main" {
 }
 
 build {
-  name = "pfsense"
+  name    = "pfsense"
   sources = ["source.proxmox-iso.main"]
   provisioner "shell" {
     inline = [
@@ -148,19 +148,19 @@ build {
     ]
   }
   provisioner "file" {
-    direction = "download"
-    source = "/conf/config.xml"
+    direction   = "download"
+    source      = "/conf/config.xml"
     destination = "/tmp/config.xml"
   }
   provisioner "shell-local" {
     inline = [
-      "ansible-playbook ansible/playbook-pfsense-sudo-conf.yml",
+      "ansible-playbook ansible/playbooks/pfsense/playbook-pfsense-sudo-conf.yml",
     ]
   }
   provisioner "file" {
-    source = "/tmp/config.xml"
+    source      = "/tmp/config.xml"
     destination = "/conf/config.xml"
-    generated = true
+    generated   = true
   }
   provisioner "shell" {
     inline = [
@@ -168,7 +168,7 @@ build {
     ]
   }
   provisioner "ansible" {
-    playbook_file = "ansible/playbook-pfsense-create-ansible-user.yml"
+    playbook_file           = "ansible/playbooks/pfsense/playbook-pfsense-create-ansible-user.yml"
     inventory_file_template = "${build.name} ansible_host=${build.Host} ansible_user=${build.User} ansible_port=${build.Port} ansible_password=${build.Password}\n"
     ansible_env_vars = [
       "ADM_USR=${var.ansible_usr_name}",

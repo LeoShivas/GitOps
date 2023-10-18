@@ -1,0 +1,10 @@
+---
+- name: Get the host count from a given group
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get the host count from a given group
+      set_fact:
+        host_count: "{{ groups[lookup('env','GROUP_NAME')] | length }}"
+    - debug:
+        var: host_count
