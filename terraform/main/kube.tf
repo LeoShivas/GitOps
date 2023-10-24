@@ -17,13 +17,13 @@ locals {
   )
   kube_cp_list = {
     for i in range(var.kube_cp_count) : "kube-cp-${i + 1}" => {
-      vm_memory = 2048
+      vm_memory = 3072
       vm_mac    = macaddress.kube_cp[i].address
     }
   }
   kube_wk_list = {
     for i in range(var.kube_wk_count) : "kube-wk-${i + 1}" => {
-      vm_memory = 2048
+      vm_memory = 3072
       vm_mac    = macaddress.kube_wk[i].address
     }
   }
