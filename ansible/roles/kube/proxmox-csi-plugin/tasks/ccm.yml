@@ -1,5 +1,4 @@
 ---
-######## This accounts creation is not scipted yet, so you need to create it manually
 - name: CCM installation block
   block:
 
@@ -16,6 +15,11 @@
               token_id: "kubernetes@pve!ccm"
               token_secret: "xxxxxxxxxxxxxxxxxxxxxxxx"
               region: main
+        enabledControllers:
+          - cloud-node
+          - cloud-node-lifecycle
+        nodeSelector:
+          node-role.kubernetes.io/control-plane: ""
 
   - name: Create Proxmox CSI namespace
     kubernetes.core.k8s:
@@ -27,6 +31,7 @@
           name: csi-proxmox
           labels:
             app.kubernetes.io/managed-by: Helm
+            pod-security.kubernetes.io/enforce: privileged
           annotations:
             meta.helm.sh/release-name: proxmox-csi-plugin
             meta.helm.sh/release-namespace: csi-proxmox

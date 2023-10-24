@@ -42,3 +42,11 @@
       alias k=kubectl
       complete -o default -F __start_kubectl k
     mode: a+r
+- name: Add node IP in kubelet config
+  lineinfile:
+    path: /etc/sysconfig/kubelet
+    regexp: '^KUBELET_EXTRA_ARGS='
+    line: KUBELET_EXTRA_ARGS=--node-ip={{ ansible_default_ipv4.address }} --cloud-provider=external
+    state: present
+    create: yes
+    mode: a+r
