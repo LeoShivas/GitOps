@@ -27,6 +27,7 @@
           name: csi-proxmox
           labels:
             app.kubernetes.io/managed-by: Helm
+            pod-security.kubernetes.io/enforce: privileged
           annotations:
             meta.helm.sh/release-name: proxmox-csi-plugin
             meta.helm.sh/release-namespace: csi-proxmox
