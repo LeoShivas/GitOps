@@ -35,3 +35,8 @@
       register: result
       changed_when: result.rc == 254
       failed_when: result.rc != 254 and result.rc != 0
+- name: Wait for Kubernetes VMs to be ready
+  hosts: kube
+  tasks:
+    - name: Wait 600 seconds for target connection to become reachable/usable
+      ansible.builtin.wait_for_connection:
