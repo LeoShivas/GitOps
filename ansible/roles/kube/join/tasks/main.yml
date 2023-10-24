@@ -46,6 +46,9 @@
     delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
     when: node_labels.rc != 0
   when: ansible_hostname in groups['kube_wk']
+- name: Wait for node to be ready
+  pause:
+    seconds: 30
 - name: Check join status
   shell: kubectl get nodes {{ ansible_hostname }}
   register: join_status
