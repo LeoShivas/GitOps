@@ -19,6 +19,10 @@
       chart_ref: cilium/cilium
       chart_version: "{{ cilium_version.stdout }}"
       values:
+        kubeProxyReplacement: true
+        bpf.masquerade: true
+        k8sServiceHost: "{{ kube_endpoint }}"
+        k8sServicePort: 6443
         hubble:
           relay:
             enabled: true
