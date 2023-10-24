@@ -27,6 +27,12 @@
   roles:
     - kube/admin
 
+- name: Wait for Kubernetes cluster to be ready
+  hosts: localhost
+  tasks:
+    - pause:
+        seconds: 120
+
 - name: Set UP CSI plugin
   hosts: kube_first_cp
   vars:
