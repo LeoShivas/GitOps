@@ -1,0 +1,14 @@
+- name: Patch coredns tolerations
+  kubernetes.core.k8s:
+    kind: Deployment
+    name: coredns
+    namespace: kube-system
+    definition:
+      spec:
+        template:
+          spec:
+            tolerations:
+            - key: node.cloudprovider.kubernetes.io/uninitialized
+              effect: NoSchedule
+              operator: Exists
+  become: no

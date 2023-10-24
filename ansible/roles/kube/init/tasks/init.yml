@@ -54,6 +54,7 @@
       become: no
   when: kubectl_cluster_info.rc != 0
 - include_tasks: requirements.yml
+- include_tasks: coredns.yml
 - include_tasks: helm.yml
 - include_tasks: metrics-server.yml
 - include_tasks: kubelet-csr-approver.yml
