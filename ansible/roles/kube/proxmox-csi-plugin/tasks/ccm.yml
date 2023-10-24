@@ -1,5 +1,4 @@
 ---
-######## This accounts creation is not scipted yet, so you need to create it manually
 - name: CCM installation block
   block:
 
