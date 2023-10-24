@@ -49,6 +49,8 @@
       register: kubectl_cluster_info
       changed_when: false
       failed_when: kubectl_cluster_info.rc != 0
+      retries: 3
+      delay: 10
       become: no
   when: kubectl_cluster_info.rc != 0
 - include_tasks: requirements.yml

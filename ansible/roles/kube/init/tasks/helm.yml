@@ -10,6 +10,8 @@
     remote_src: true
   args:
     creates: /usr/bin/helm
+  retries: 3
+  delay: 3
 
 - name: Install helm plugins
   block:
