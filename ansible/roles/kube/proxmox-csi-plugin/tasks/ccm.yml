@@ -16,6 +16,11 @@
               token_id: "kubernetes@pve!ccm"
               token_secret: "xxxxxxxxxxxxxxxxxxxxxxxx"
               region: main
+        enabledControllers:
+          - cloud-node
+          - cloud-node-lifecycle
+        nodeSelector:
+          node-role.kubernetes.io/control-plane: ""
 
   - name: Create Proxmox CSI namespace
     kubernetes.core.k8s:
