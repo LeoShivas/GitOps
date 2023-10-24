@@ -21,6 +21,8 @@
   hosts: kube_first_cp
   roles:
     - kube/cilium
+  vars:
+    kube_endpoint: "{{ lookup('env','K8S_ENDPOINT') }}"
 
 - name: Install administrative tools
   hosts: kube_adm
