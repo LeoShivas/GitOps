@@ -12,7 +12,7 @@
         path: /etc/hosts
         line: "127.0.0.1 {{ kube_endpoint }}"
     # https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
-    - name: Create init conf file (for adding serverTLSBootstrap option)
+    - name: Create init conf file
       copy:
         dest: /etc/kubernetes/kubeadm-init.yaml
         content: |
