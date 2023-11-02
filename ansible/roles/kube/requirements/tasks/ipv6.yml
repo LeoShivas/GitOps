@@ -1,0 +1,8 @@
+---
+- name: Disable ipv6
+  lineinfile:
+    path: /etc/default/grub
+    line: 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX ipv6.disable=1"'
+  notify:
+  - Regenerate grub config
+  - Reboot

@@ -29,6 +29,10 @@
             enabled: true
           ui:
             enabled: true
+            frontend:
+              server:
+                ipv6:
+                  enabled: false
           tls:
             auto:
               enabled: true

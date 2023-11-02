@@ -7,3 +7,7 @@
 - name: Daemon Reload
   systemd:
     daemon_reload: yes
+- name: Regenerate grub config
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+- name: Reboot
+  reboot:

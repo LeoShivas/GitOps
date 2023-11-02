@@ -1,4 +1,5 @@
 ---
+- include_tasks: ipv6.yml
 - include_tasks: repositories.yml
 - include_tasks: dnf.yml
 - include_tasks: swap.yml
