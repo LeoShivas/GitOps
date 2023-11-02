@@ -23,6 +23,7 @@
     - kube/cilium
   vars:
     kube_endpoint: "{{ lookup('env','K8S_ENDPOINT') }}"
+    cilium_native_routing_cidr: "{{ lookup('env','K8S_POD_CIDR') }}"
 
 - name: Install administrative tools
   hosts: kube_adm

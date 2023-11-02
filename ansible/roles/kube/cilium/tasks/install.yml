@@ -19,6 +19,10 @@
       chart_ref: cilium/cilium
       chart_version: "{{ cilium_version.stdout }}"
       values:
+        ipv4NativeRoutingCIDR: "{{ cilium_native_routing_cidr }}"
+        rollOutCiliumPods: true
+        autoDirectNodeRoutes: true
+        routingMode: native
         kubeProxyReplacement: true
         bpf:
           masquerade: true
