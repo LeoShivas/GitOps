@@ -41,5 +41,6 @@
             auto:
               enabled: true
               method: cronJob
+      timeout: 10m
 
   become: no
