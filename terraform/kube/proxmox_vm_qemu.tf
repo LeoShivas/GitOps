@@ -62,7 +62,6 @@ resource "proxmox_vm_qemu" "main" {
   memory                 = var.vm_memory
   onboot                 = true
   qemu_os                = "l26"
-  balloon                = var.vm_memory / 2
   scsihw                 = "virtio-scsi-single"
   bootdisk               = "scsi0"
 
