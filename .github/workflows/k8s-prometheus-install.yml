@@ -1,0 +1,37 @@
+name: K8S - Install Prometheus
+on:
+  workflow_dispatch:
+#  push:
+#    paths:
+#      - '.github/workflows/k8s-prometheus-install.yml'
+
+jobs:
+#  call-ingress-install:
+#    uses: ./.github/workflows/k8s-ingress-nginx-install.yml
+#    secrets: inherit
+  install:
+#    needs: call-ingress-install
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install Prometheus
+      run: |
+        helm upgrade --install prometheus prometheus \
+        --repo https://prometheus-community.github.io/helm-charts \
+        --namespace prometheus --create-namespace \
+        --set server.ingress.enabled=true \
+        --set server.ingress.ingressClassName=nginx \
+        --set server.ingress.hosts[0]=${{ secrets.PROMETHEUS_FQDN }} \
+        --set "server.ingress.annotations.cert-manager\\.io/cluster-issuer"=letsencrypt-prod \
+        --set server.ingress.tls[0].hosts[0]=${{ secrets.PROMETHEUS_FQDN }} \
+        --set server.ingress.tls[0].secretName=prometheus-tls \
+        --set "server.ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/target"=${{ secrets.FPSENSE_FQDN }} \
+        --set server.persistentVolume.storageClass=proxmox-data \
+        --set alertmanager.persistence.storageClass=proxmox-data
