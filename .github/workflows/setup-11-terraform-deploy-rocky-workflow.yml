@@ -1,9 +1,9 @@
 name: Setup - 11 - Deploy rocky workflow
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'ansible/hosts.yml'
+#  push:
+#    paths:
+#      - 'ansible/hosts.yml'
 env:
   PM_API_URL: ${{ secrets.PROXMOX_URL }}
   PM_API_TOKEN_ID: "${{ secrets.TERRAFORM_USR_NAME }}@pam!${{ secrets.TERRAFORM_USR_TOKEN_ID }}"
