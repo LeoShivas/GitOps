@@ -11,13 +11,9 @@ resource "macaddress" "kube_wk" {
 }
 
 locals {
-  kube_vm_list = merge(
-    local.kube_cp_list,
-    local.kube_wk_list,
-  )
   kube_cp_list = {
     for i in range(var.kube_cp_count) : "kube-cp-${i + 1}" => {
-      vm_memory = 3072
+      vm_memory = 16384
       vm_mac    = macaddress.kube_cp[i].address
     }
   }
@@ -27,6 +23,10 @@ locals {
       vm_mac    = macaddress.kube_wk[i].address
     }
   }
+  kube_vm_list = merge(
+    local.kube_cp_list,
+    local.kube_wk_list,
+  )
 }
 
 module "kube_vm" {
