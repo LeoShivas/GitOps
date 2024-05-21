@@ -1,0 +1,20 @@
+{{- if not .Values.storage.config.existingClaim -}}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: "{{ include "transmission.fullname" . }}-config"
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "transmission.labels" . | nindent 4 }}
+  {{- if not .Values.storage.config.deleteOnUninstall }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  storageClassName: {{ .Values.storage.config.storageClass }}
+  accessModes:
+    - {{ .Values.storage.config.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.config.size }}
+{{- end }}

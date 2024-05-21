@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "transmission.fullname" . }}-ui
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "transmission.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "transmission.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "transmission.fullname" . }}-peer
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "transmission.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  ports:
+    - port: {{ .Values.peerListeningPort }}
+      nodePort: {{ .Values.peerListeningPort }}
+      protocol: UDP
+      name: {{ .Values.peerListeningPort }}-udp
+    - port: {{ .Values.peerListeningPort }}
+      nodePort: {{ .Values.peerListeningPort }}
+      protocol: TCP
+      name: {{ .Values.peerListeningPort }}-tcp
+  selector:
+    {{- include "transmission.selectorLabels" . | nindent 4 }}
