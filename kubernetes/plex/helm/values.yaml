@@ -1,0 +1,54 @@
+#initContainer:
+#  script: |-
+#    #!/bin/sh
+#    echo "waiting for pre-existing pms database to uploaded..."
+#
+#    if [ -d "/config/Library" ]; then
+#      echo "PMS library already exists, exiting."
+#      exit 0
+#    fi
+#
+#    # wait for the database archive to be manually copied to the server
+#    while [ ! -f /pms.tgz ]; do sleep 2; done;
+#
+#    tar -xvzf /pms.tgz -C /config
+#    rm pms.tgz
+#
+#    echo "Done."
+
+#rclone:
+#  # if the rclone sidecar should be created
+#  enabled: true
+#
+#  configSecret: "rclone-config"
+#
+#
+#  # the remote drive that should be mounted using rclone
+#  # this must be in the form of `name:[/optional/path]`
+#  # this remote will be mounted at `/data/name` in the PMS container
+#  remotes:
+#    - "plex:/from"
+#
+#extraContainers:
+#- name: plex-media-server-rsync
+#  command:
+#    - /bin/sh
+#  args:
+#    - -c
+#    - while true; do echo hello; sleep 10;done
+#  command:
+#    - rsync
+#  args:
+#    - -av
+#    - --progress
+#    - /from/a/folder
+#    - /from/another/folder
+#    - /to/the/destination/folder/     # i.e: /plex-data/
+#  image: jlenuff/rsync:latest
+#  imagePullPolicy: IfNotPresent
+#  volumeMounts:
+#    - mountPath: /from
+#      mountPropagation: HostToContainer
+#      name: rclone-media-plex
+#    - mountPath: /plex-data
+#      name: pms-data
