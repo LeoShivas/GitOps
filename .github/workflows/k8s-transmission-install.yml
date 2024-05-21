@@ -1,0 +1,43 @@
+name: K8S - Install Transmission
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "21 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/transmission/**'
+#      - '.github/workflows/k8s-transmission-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install Transmission
+      run: |
+        helm upgrade --install transmission ./kubernetes/transmission/helm/transmission \
+        --namespace my-namespace \
+        --set peerListeningPort=${{ vars.TRANSMISSION_PEER_LISTENING_PORT }} \
+        --set env.PUID=${{ vars.PLEX_UID }} \
+        --set env.PGID=${{ vars.PLEX_GID }} \
+        --set env.TZ=${{ vars.MAIN_TIMEZONE }} \
+        --set env.PEERPORT=${{ vars.TRANSMISSION_PEER_LISTENING_PORT }} \
+        --set ingress.enabled=true \
+        --set ingress.className=nginx \
+        --set ingress.hosts[0].host=${{ secrets.MAIN_FQDN }} \
+        --set ingress.hosts[0].paths[0].path=/dl \
+        --set ingress.hosts[0].paths[0].pathType=Prefix \
+        --set "ingress.annotations.cert-manager\\.io/cluster-issuer"=letsencrypt-prod \
+        --set ingress.tls[0].hosts[0]=${{ secrets.MAIN_FQDN }} \
+        --set ingress.tls[0].secretName=main-tls \
+        --set storage.config.storageClass=proxmox-data \
+        --set storage.data.existingClaim=${{ vars.PLEX_PVC_NAME }} \
+        --set username=${{ secrets.TRANSMISSION_USERNAME }} \
+        --set password=${{ secrets.TRANSMISSION_PWD }}
