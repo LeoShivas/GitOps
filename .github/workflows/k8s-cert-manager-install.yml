@@ -1,0 +1,36 @@
+name: K8S - Install Cert Manager
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "24 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/cert-manager/**'
+#      - '.github/workflows/k8s-cert-manager-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install Cert Manager
+      run: |
+        helm upgrade --install cert-manager cert-manager \
+        --repo https://charts.jetstack.io \
+        --namespace cert-manager --create-namespace \
+        --set installCRDs=true \
+        --set prometheus.enabled=false
+    - name: Wait for cert-manager to be ready
+      run: |
+        kubectl wait --for=condition=available --timeout=600s deployment/cert-manager -n cert-manager
+        kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-cainjector -n cert-manager
+        kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
+    - name: Create letsencrypt ClusterIssuer (prod and staging)
+      run: kubectl apply -k ./kubernetes/cert-manager/kustomize
