@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kavita.fullname" . }}
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "kavita.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "kavita.selectorLabels" . | nindent 4 }}
+{{- if .Values.mangaManager.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kavita.fullname" . }}-manga-manager
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "kavita.mangaManager.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mangaManager.service.type }}
+  ports:
+    - port: {{ .Values.mangaManager.service.port }}
+      targetPort: manga-manager
+      protocol: TCP
+      name: manga-manager
+  selector:
+    {{- include "kavita.mangaManager.selectorLabels" . | nindent 4 }}
+{{- end }}
