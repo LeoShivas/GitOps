@@ -13,10 +13,16 @@ resource "proxmox_vm_qemu" "pfsense" {
   onboot                 = true
   qemu_os                = "l26"
 
-  disk {
-    type    = "virtio"
-    storage = "local"
-    size    = "15G"
+  disks {
+    virtio {
+      virtio0 {
+        disk {
+          size      = 15
+          storage   = "local"
+          replicate = true
+        }
+      }
+    }
   }
 
   network {
