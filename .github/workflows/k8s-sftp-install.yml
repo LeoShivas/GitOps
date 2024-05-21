@@ -1,0 +1,47 @@
+name: K8S - Install SFTP
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "36 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/sftp/helm/sftp/**'
+#      - '.github/workflows/k8s-sftp-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install SFTP
+      run: |
+        helm upgrade --install sftp ./kubernetes/sftp/helm/sftp \
+        --namespace my-namespace \
+        --set users.${{ secrets.SFTP_USER }}.password=${{ secrets.SFTP_PASSWORD }} \
+        --set users.${{ secrets.SFTP_USER }}.sshPublicKey="${{ secrets.SFTP_SSH_PUBLIC_KEY }}" \
+        --set users.${{ secrets.SFTP_USER }}.uid=${{ vars.PLEX_UID }} \
+        --set users.${{ secrets.SFTP_USER }}.gid=${{ vars.PLEX_GID }} \
+        --set env.TZ=${{ vars.MAIN_TIMEZONE }} \
+        --set service.type=NodePort \
+        --set service.port=${{ secrets.K8S_SFTP_PORT }} \
+        --set sshHostKeys.ed25519="${{ secrets.SFTP_SSH_HOST_ED25519_PRIVATE_KEY }}" \
+        --set sshHostKeys.rsa="${{ secrets.SFTP_SSH_HOST_RSA_PRIVATE_KEY }}" \
+        --set volumes[0].name=kavita-config \
+        --set volumes[0].persistentVolumeClaim.claimName=kavita-config \
+        --set volumes[1].name=kavita-data \
+        --set volumes[1].persistentVolumeClaim.claimName=kavita-data \
+        --set volumes[2].name=pms-data \
+        --set volumes[2].persistentVolumeClaim.claimName=pms-data \
+        --set volumeMounts[0].name=kavita-config \
+        --set volumeMounts[0].mountPath=/home/${{ secrets.SFTP_USER }}/kavita-config \
+        --set volumeMounts[1].name=kavita-data \
+        --set volumeMounts[1].mountPath=/home/${{ secrets.SFTP_USER }}/kavita-data \
+        --set volumeMounts[2].name=pms-data \
+        --set volumeMounts[2].mountPath=/home/${{ secrets.SFTP_USER }}/pms-data
