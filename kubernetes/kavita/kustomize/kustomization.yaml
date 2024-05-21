@@ -1,0 +1,2 @@
+namespace: my-namespaceresources:
+  - PersistentVolumeClaim.yaml
