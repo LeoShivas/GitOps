@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex-remote-access
+  namespace: my-namespace
+spec:
+  ports:
+    - name: 32400-tcp
+      nodePort: 32400
+      port: 32400
+      targetPort: 32400
+      protocol: TCP
+  selector:
+    app.kubernetes.io/instance: plex-media-server
+    app.kubernetes.io/name: plex-media-server
+  type: NodePort
