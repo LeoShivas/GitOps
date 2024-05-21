@@ -1,0 +1,46 @@
+name: K8S - Install oauth2-proxy
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "06 4 * * *"
+#  push:
+#    paths:
+#      - '.github/workflows/k8s-oauth2-proxy-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install oauth2-proxy Helm chart
+      run: |
+        helm upgrade --install oauth2-proxy oauth2-proxy \
+        --repo https://oauth2-proxy.github.io/manifests \
+        --namespace oauth2-proxy --create-namespace \
+        --set config.clientID=${{ secrets.K8S_GITHUB_OAUTH_CLIENT_ID }} \
+        --set config.clientSecret=${{ secrets.K8S_GITHUB_OAUTH_CLIENT_SECRET }} \
+        --set config.cookieSecret=${{ secrets.K8S_OAUTH2_PROXY_COOKIE_SECRET }} \
+        --set extraEnv[0].name=OAUTH2_PROXY_COOKIE_DOMAINS \
+        --set extraEnv[0].value=".${{ secrets.MAIN_DOMAIN }}" \
+        --set extraEnv[1].name=OAUTH2_PROXY_WHITELIST_DOMAINS \
+        --set extraEnv[1].value=".${{ secrets.MAIN_DOMAIN }}" \
+        --set extraEnv[2].name=OAUTH2_PROXY_PROVIDER \
+        --set extraEnv[2].value=github \
+        --set extraEnv[3].name=OAUTH2_PROXY_GITHUB_USERS \
+        --set extraEnv[3].value=${{ github.repository_owner }} \
+        --set ingress.enabled=true \
+        --set ingress.className=nginx \
+        --set "ingress.annotations.cert-manager\\.io/cluster-issuer"=letsencrypt-prod \
+        --set "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/target"=${{ secrets.FPSENSE_FQDN }} \
+        --set ingress.path="/" \
+        --set ingress.pathType=ImplementationSpecific \
+        --set ingress.hosts[0]=${{ secrets.K8S_OAUTH2_PROXY_INGRESS_HOST }} \
+        --set ingress.tls[0].hosts[0]=${{ secrets.K8S_OAUTH2_PROXY_INGRESS_HOST }} \
+        --set ingress.tls[0].secretName=oauth-proxy-tls
