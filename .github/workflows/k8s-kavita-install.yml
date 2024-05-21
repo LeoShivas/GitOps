@@ -1,0 +1,50 @@
+name: K8S - Install Kavita
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "06 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/kavita/**'
+#      - '.github/workflows/k8s-kavita-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Create Kavita main storage
+      run: kubectl apply -k ./kubernetes/kavita/kustomize
+    - name: Install Kavita
+      run: |
+        helm upgrade --install kavita ./kubernetes/kavita/helm/kavita \
+        --namespace my-namespace \
+        --set env.PUID=${{ vars.PLEX_UID }} \
+        --set env.PGID=${{ vars.PLEX_GID }} \
+        --set env.TZ=${{ vars.MAIN_TIMEZONE }} \
+        --set ingress.enabled=true \
+        --set ingress.className=nginx \
+        --set ingress.hosts[0].host=${{ secrets.MAIN_FQDN }} \
+        --set ingress.hosts[0].paths[0].path=/ebooks \
+        --set ingress.hosts[0].paths[0].pathType=Prefix \
+        --set ingress.tls[0].hosts[0]=${{ secrets.MAIN_FQDN }} \
+        --set ingress.tls[0].secretName=main-tls \
+        --set storage.config.storageClass=proxmox-data \
+        --set storage.config.size=5Gi \
+        --set volumes[0].name=data \
+        --set volumes[0].persistentVolumeClaim.claimName=kavita-data \
+        --set volumeMounts[0].name=data \
+        --set volumeMounts[0].mountPath=/ebooks \
+        --set mangaManager.enabled=true \
+        --set mangaManager.env.TITLE="Manga Manager" \
+        --set mangaManager.env.KEYBOARD=fr-fr-azerty \
+        --set mangaManager.volumeMounts[0].name=data \
+        --set mangaManager.volumeMounts[0].subPath=mangas \
+        --set mangaManager.volumeMounts[0].mountPath=/manga
