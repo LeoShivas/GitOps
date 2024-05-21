@@ -44,7 +44,7 @@
 #    - /from/a/folder
 #    - /from/another/folder
 #    - /to/the/destination/folder/     # i.e: /plex-data/
-#  image: jlenuff/rsync:latest
+#  image: mydockerhubuser/rsync:latest
 #  imagePullPolicy: IfNotPresent
 #  volumeMounts:
 #    - mountPath: /from

@@ -12,7 +12,7 @@ A Helm chart for Kubernetes
 | env | object | `{}` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"Always"` |  |
-| image.repository | string | `"jlenuff/sftp"` |  |
+| image.repository | string | `"mydockerhubuser/sftp"` |  |
 | image.tag | string | `"alpine"` | Overrides the image tag whose default is the chart appVersion. |
 | imagePullSecrets | list | `[]` |  |
 | nameOverride | string | `""` |  |
