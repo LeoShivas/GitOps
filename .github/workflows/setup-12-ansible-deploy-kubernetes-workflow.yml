@@ -1,0 +1,45 @@
+name: Setup - 12 - Deploy Kubernetes cluster
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-k8s:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-install-ansible
+      name: Launch ansible installation
+      with:
+        default-private-key: ${{ secrets.ADM_SSH_PRIVATE_KEY }}
+        default-ssh-user: ${{ secrets.ADM_NAME }}
+        default-ssh-port: ${{ secrets.PFSENSE_SSH_PORT }}
+        default-ssh-ip: ${{ secrets.OVH_VIRTUAL_IP }}
+    - name: Run K8S deployment
+      run: ansible-playbook ansible/playbooks/kubernetes/playbook-kube-install.yml
+      env:
+        K8S_ENDPOINT: ${{ secrets.K8S_ENDPOINT }}
+        K8S_POD_CIDR: ${{ vars.K8S_POD_CIDR }}
+        PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+    - name: Get admin ServiceAccount token
+      id: get-admin-k8s-sa-token
+      run: |
+        token=$(ansible-playbook ansible/playbooks/kubernetes/playbook-kube-get-admin-sa-token.yml | grep b64decode | awk -F'"' '{print $4}')
+        echo "::add-mask::$token"
+        echo "token_secret=$token" >> $GITHUB_OUTPUT
+    - name: Save K8S token secret to GitHub secrets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TKN_SCECRETS_WRITE }}
+      run: |
+        gh secret set K8S_ADM_TOKEN_SECRET --body "${{ steps.get-admin-k8s-sa-token.outputs.token_secret }}"
+    - name: Get admin ServiceAccount cert
+      id: get-admin-k8s-sa-cert
+      run: |
+        cert=$(ansible-playbook ansible/playbooks/kubernetes/playbook-kube-get-admin-sa-cert.yml | grep b64decode | awk -F'"' '{print $6}')
+        echo "::add-mask::$cert"
+        echo "cert_secret=$cert" >> $GITHUB_OUTPUT
+    - name: Save K8S cert secret to GitHub secrets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_TKN_SCECRETS_WRITE }}
+      run: |
+        gh secret set K8S_ADM_CERT_SECRET --body "${{ steps.get-admin-k8s-sa-cert.outputs.cert_secret }}"
