@@ -1,0 +1,47 @@
+name: K8S - Install Plex
+on:
+  workflow_dispatch:
+#  schedule:
+#    - cron: "05 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/plex/**'
+#      - '.github/workflows/k8s-plex-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl login
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Create Plex namespace and main storage
+      run: kubectl apply -k ./kubernetes/plex/kustomize
+    - name: Install Plex
+      run: |
+        helm upgrade --install plex-media-server plex-media-server \
+        --repo https://raw.githubusercontent.com/plexinc/pms-docker/gh-pages \
+        --namespace my-namespace \
+        --values ./kubernetes/plex/helm/values.yaml \
+        --set image.pullPolicy=Always \
+        --set ingress.enabled=true \
+        --set ingress.ingressClassName=nginx \
+        --set ingress.url=https://${{ secrets.PLEX_FQDN }} \
+        --set "ingress.annotations.cert-manager\\.io/cluster-issuer"=letsencrypt-prod \
+        --set pms.configStorage=100Gi \
+        --set pms.storageClassName=proxmox-data \
+        --set extraEnv.PLEX_CLAIM=claim \
+        --set extraEnv.HOSTNAME=${{ secrets.PLEX_NAME }} \
+        --set extraEnv.TZ=${{ vars.MAIN_TIMEZONE }} \
+        --set extraEnv.PLEX_UID=${{ vars.PLEX_UID }} \
+        --set extraEnv.PLEX_GID=${{ vars.PLEX_GID }} \
+        --set extraEnv.CHANGE_CONFIG_DIR_OWNERSHIP=false \
+        --set extraVolumeMounts[0].name=data \
+        --set extraVolumeMounts[0].mountPath=/data \
+        --set extraVolumes[0].name=data \
+        --set extraVolumes[0].persistentVolumeClaim.claimName=${{ vars.PLEX_PVC_NAME }}
