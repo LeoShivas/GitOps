@@ -1,0 +1,149 @@
+{{ $publicKeys := include "sftp.publicKeys" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sftp.fullname" . }}
+  labels:
+    {{- include "sftp.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "sftp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "sftp.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ssh
+              containerPort: 22
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: ssh
+          readinessProbe:
+            tcpSocket:
+              port: ssh
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/sftp/users.conf
+              subPath: users.conf
+            - name: conf
+              mountPath: /etc/ssh/sshd_config
+              subPath: sshd_config
+            {{- if .Values.sshHostKeys.ed25519 }}
+            - name: host-keys
+              mountPath: /etc/ssh/ssh_host_ed25519_key
+              subPath: ssh_host_ed25519_key
+            {{- end }}
+            {{- if .Values.sshHostKeys.rsa }}
+            - name: host-keys
+              mountPath: /etc/ssh/ssh_host_rsa_key
+              subPath: ssh_host_rsa_key
+            {{- end }}
+            {{ if $publicKeys -}}
+            - name: users-home
+              mountPath: /home
+            {{- end -}}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if $publicKeys }}
+      initContainers:
+        {{- range $name, $user := .Values.users -}}
+        {{- if $user.sshPublicKey }}
+        - name: copy-key-{{ $name }}-user
+          image: busybox
+          command: ['sh', '-c', 'cp -Lr /keys/{{ $name }} /home/']
+          volumeMounts:
+            - name: users-home
+              mountPath: /home
+            - name: users-key
+              mountPath: /keys
+        - name: give-{{ $name }}-user-permissions
+          image: busybox
+          command: ['sh', '-c', 'chown -R {{ $user.uid }}:{{ $user.uid }} /home/{{ $name }}']
+          volumeMounts:
+            - name: users-home
+              mountPath: /home
+        - name: change-home-permissions
+          image: busybox
+          command: ['sh', '-c', 'chmod 755 /home']
+          volumeMounts:
+            - name: users-home
+              mountPath: /home
+        {{- end -}}
+        {{- end -}}
+        {{- end }}
+      volumes:
+        - name: conf
+          configMap:
+            name: {{ include "sftp.fullname" . }}-conf
+            items:
+              - key: users.conf
+                path: users.conf
+              - key: sshd_config
+                path: sshd_config
+        {{- if .Values.sshHostKeys }}
+        - name: host-keys
+          secret:
+            secretName: {{ include "sftp.fullname" . }}-privatekeys
+            defaultMode: 0400
+            items:
+              {{- if .Values.sshHostKeys.ed25519 }}
+              - key: ssh_host_ed25519_key
+                path: ssh_host_ed25519_key
+              {{- end }}
+              {{- if .Values.sshHostKeys.rsa }}
+              - key: ssh_host_rsa_key
+                path: ssh_host_rsa_key
+              {{- end }}
+        {{- end }}
+        {{- if $publicKeys }}
+        - name: users-home
+          emptyDir: {}
+        - name: users-key
+          secret:
+            secretName: {{ include "sftp.fullname" . }}-pubkeys
+            items:
+            {{ range (list $publicKeys) -}}
+            - key: {{ . }}
+              path: {{ . }}/.ssh/keys/id_rsa.pub{{ end -}}
+        {{ end -}}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
