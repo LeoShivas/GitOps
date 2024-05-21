@@ -22,8 +22,6 @@
         description: "Cloud init Rocky 9 template"
         net:
           net0: virtio,bridge=vmbr1
-        ide:
-          ide2: local:cloudinit
         scsihw: virtio-scsi-single
     - name: Add disk to VM
       community.general.proxmox_disk:
