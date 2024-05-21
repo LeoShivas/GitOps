@@ -1,0 +1,44 @@
+name: K8S - Install External DNS
+on:
+  workflow_dispatch:
+#  workflow_call:
+#  schedule:
+#    - cron: "40 4 * * *"
+#  push:
+#    paths:
+#      - '.github/workflows/k8s-external-dns-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl installation
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install External DNS
+      run: |
+        helm upgrade --install external-dns external-dns \
+        --repo https://kubernetes-sigs.github.io/external-dns \
+        --namespace external-dns \
+        --create-namespace \
+        --set provider=ovh \
+        --set sources[0]=ingress \
+        --set secretConfiguration.enabled=true \
+        --set secretConfiguration.data.OVH_APPLICATION_KEY=${{ secrets.OVH_APPLICATION_KEY }} \
+        --set secretConfiguration.data.OVH_APPLICATION_SECRET=${{ secrets.OVH_APPLICATION_SECRET }} \
+        --set secretConfiguration.data.OVH_CONSUMER_KEY=${{ secrets.OVH_CONSUMER_KEY }} \
+        --set env[0].name=OVH_APPLICATION_KEY \
+        --set env[0].valueFrom.secretKeyRef.name=external-dns \
+        --set env[0].valueFrom.secretKeyRef.key=OVH_APPLICATION_KEY \
+        --set env[1].name=OVH_APPLICATION_SECRET \
+        --set env[1].valueFrom.secretKeyRef.name=external-dns \
+        --set env[1].valueFrom.secretKeyRef.key=OVH_APPLICATION_SECRET \
+        --set env[2].name=OVH_CONSUMER_KEY \
+        --set env[2].valueFrom.secretKeyRef.name=external-dns \
+        --set env[2].valueFrom.secretKeyRef.key=OVH_CONSUMER_KEY \
+        --set secretConfiguration.mountPath=/dummy
