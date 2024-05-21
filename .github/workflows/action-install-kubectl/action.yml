@@ -1,0 +1,41 @@
+name: Kubectl install
+inputs:
+  version:
+    description: 'Kubectl version'
+    default: 'latest'
+    type: string
+  token:
+    description: 'Kubernetes token'
+    required: true
+    type: string
+  server:
+    description: 'Kubernetes server'
+    required: true
+    type: string
+  cert:
+    description: 'Kubernetes certificate'
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+  - name: Get latest kubectl version
+    if: ${{ inputs.version == 'latest' }}
+    run: |
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+      echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+    shell: bash
+  - name: Get the kubectl needed version
+    if: ${{ inputs.version != 'latest' }}
+    env:
+      VERSION: ${{ inputs.version }}
+    run: |
+      curl -LO "https://dl.k8s.io/release/v${VERSION}/bin/linux/amd64/kubectl"
+      curl -LO "https://dl.k8s.io/release/v${VERSION}/bin/linux/amd64/kubectl.sha256"
+      echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+    shell: bash
+  - name: Install kubectl
+    run: |
+      sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    shell: bash

@@ -1,0 +1,25 @@
+name: Helm install
+inputs:
+  version:
+    description: 'Helm version'
+    default: 'latest'
+    type: string
+runs:
+  using: "composite"
+  steps:
+  - name: Get latest helm version
+    if: ${{ inputs.version == 'latest' }}
+    run: |
+      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    shell: bash
+  - name: Get the helm needed version
+    if: ${{ inputs.version != 'latest' }}
+    env:
+      VERSION: ${{ inputs.version }}
+    run: |
+      curl -LO "https://github.com/helm/helm/releases/download/v${VERSION}/helm-v${VERSION}-linux-amd64.tar.gz.asc"
+      curl -LO "https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz"
+      gpg --verify helm-v${VERSION}-linux-amd64.tar.gz.asc helm-v${VERSION}-linux-amd64.tar.gz
+      tar -zxvf helm-v${VERSION}-linux-amd64.tar.gz
+      mv linux-amd64/helm /usr/local/bin/helm
+    shell: bash

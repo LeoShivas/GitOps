@@ -1,0 +1,32 @@
+name: Kubectl login
+inputs:
+  token:
+    description: 'Kubernetes token'
+    required: true
+    type: string
+  server:
+    description: 'Kubernetes server'
+    required: true
+    type: string
+  cert:
+    description: 'Kubernetes certificate'
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+    - name: Retrieve K8S CA certificate
+      run: echo -e "${{ inputs.cert }}" > ca.crt
+      shell: bash
+    - name: Set K8S cluster
+      run: kubectl config set-cluster k8s-cluster --server=${{ inputs.server }} --certificate-authority=ca.crt
+      shell: bash
+    - name: Set K8S user
+      run: kubectl config set-credentials k8s-user --token=${{ inputs.token }}
+      shell: bash
+    - name: Create K8S context
+      run: kubectl config set-context k8s-context --cluster=k8s-cluster --user=k8s-user
+      shell: bash
+    - name: Set K8S context
+      run: kubectl config use-context k8s-context
+      shell: bash
