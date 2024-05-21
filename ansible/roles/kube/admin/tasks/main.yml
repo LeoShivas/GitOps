@@ -1,27 +1,32 @@
 ---
+- name: Create .kube directory
+  become: no
+  file:
+    path: /home/{{ ansible_user }}/.kube
+    state: directory
+- name: Retreive admin.conf from first CP
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: /tmp/config
+    flat: yes
+  changed_when: false
+  when: ansible_hostname == hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
 - name: Copy kubectl config file
   block:
-  - name: Create .kube directory
-    become: no
-    file:
-      path: /home/{{ ansible_user }}/.kube
-      state: directory
-  - name: Retreive admin.conf from first CP
-    fetch:
-      src: /etc/kubernetes/admin.conf
-      dest: /home/{{ ansible_user }}/.kube/config
-      flat: true
-      mode: 0600
-    delegate_to: "{{ hostvars[ansible_hostname]['groups']['kube_first_cp'][0] }}"
-    changed_when: false
   - name: Copy admin.conf to .kube directory
     copy:
-      src: /home/{{ ansible_user }}/.kube/config
+      src: /tmp/config
       dest: /home/{{ ansible_user }}/.kube/config
       owner: "{{ ansible_user }}"
       group: "{{ ansible_user }}"
       mode: 0600
-  when: ansible_hostname != hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
+- name: Delete admin.conf from /tmp
+  file:
+    path: /tmp/config
+    state: absent
+  run_once: yes
+  delegate_to: localhost
+  changed_when: false
 - name: Get kubectl convert version
   shell: curl -L -s https://dl.k8s.io/release/stable.txt
   register: kubectl_convert_version
@@ -82,3 +87,46 @@
     extra_opts:
       - --no-anchored
       - k9s
+- name: Create Kubernetes admin service account
+  become: no
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ ansible_user }}"
+        namespace: kube-system
+  when: ansible_hostname == hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
+- name: Create Kubernetes admin cluster role binding
+  become: no
+  k8s:
+    state: present
+    definition:
+      apiVersion: "rbac.authorization.k8s.io/v1"
+      kind: ClusterRoleBinding
+      metadata:
+        name: "{{ ansible_user }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ ansible_user }}"
+          namespace: kube-system
+  when: ansible_hostname == hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
+- name: Create Kubernetes admin secret
+  become: no
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ ansible_user }}"
+        namespace: kube-system
+        annotations:
+          kubernetes.io/service-account.name: "{{ ansible_user }}"
+      type: kubernetes.io/service-account-token
+  when: ansible_hostname == hostvars[ansible_hostname]['groups']['kube_first_cp'][0]
