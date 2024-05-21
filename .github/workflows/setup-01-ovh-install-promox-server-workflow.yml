@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Install the latest release of OVH Python wrapper
       run: pip install ovh
     - name: Set the RAID type on custom template

@@ -5,7 +5,7 @@ jobs:
   proxmox-download-pfsense:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
     - uses: ./.github/workflows/action-install-ansible
       name: Launch ansible installation
