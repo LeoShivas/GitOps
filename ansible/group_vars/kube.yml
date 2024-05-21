@@ -1,0 +1,2 @@
+kube_version: 1.29.3
+cilium_version: 1.15.1

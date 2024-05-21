@@ -7,17 +7,19 @@
       name: cilium
       repo_url: "https://helm.cilium.io/"
 
-  - name: Retreive cilium CNI version
-    shell: curl -s https://raw.githubusercontent.com/cilium/cilium/main/stable.txt
-    register: cilium_version
-    changed_when: false
+  - name: Update cilium helm repository
+    kubernetes.core.helm:
+      name: dummy
+      namespace: kube-system
+      state: absent
+      update_repo_cache: true
 
   - name: Install cilium chart
     kubernetes.core.helm:
       name: cilium
       namespace: kube-system
       chart_ref: cilium/cilium
-      chart_version: "{{ cilium_version.stdout }}"
+      chart_version: "{{ cilium_version }}"
       values:
         ipv4NativeRoutingCIDR: "{{ cilium_native_routing_cidr }}"
         rollOutCiliumPods: true
