@@ -1,0 +1,43 @@
+name: K8S - Install Helm Dashboard
+on:
+  workflow_dispatch:
+#  workflow_call:
+#  schedule:
+#    - cron: "32 4 * * *"
+#  push:
+#    paths:
+#      - 'kubernetes/helm-dashboard/**'
+#      - '.github/workflows/k8s-helm-dashboard-install.yml'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout repository
+    - uses: ./.github/workflows/action-login-kubectl
+      name: Launch kubectl installation
+      with:
+        token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
+        server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
+        cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
+    - name: Install Helm Dashboard Helm chart
+      run: |
+        helm upgrade --install helm-dashboard helm-dashboard \
+        --repo https://helm-charts.komodor.io \
+        --namespace helm-dashboard \
+        --create-namespace \
+        --set ingress.enabled=true \
+        --set ingress.className=nginx \
+        --set ingress.hosts[0].host=${{ secrets.HELM_DASHBOARD_FQDN }} \
+        --set ingress.hosts[0].paths[0].path=/ \
+        --set ingress.hosts[0].paths[0].pathType=ImplementationSpecific \
+        --set "ingress.annotations.external-dns\\.alpha\\.kubernetes\\.io/target"=${{ secrets.FPSENSE_FQDN }} \
+        --set "ingress.annotations.cert-manager\\.io/cluster-issuer"=letsencrypt-prod \
+        --set "ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/auth-url"="https://${{ secrets.K8S_OAUTH2_PROXY_INGRESS_HOST }}/oauth2/auth" \
+        --set "ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/auth-signin"="https://${{ secrets.K8S_OAUTH2_PROXY_INGRESS_HOST }}/oauth2/start?rd=\$scheme%3A%2F%2F\$host\$escaped_request_uri" \
+        --set ingress.tls[0].hosts[0]=${{ secrets.HELM_DASHBOARD_FQDN }} \
+        --set ingress.tls[0].secretName=helm-dashboard-tls \
+        --set dashboard.persistence.storageClass=proxmox-data
+    - name: Wait for Helm Dashboard to be available
+      run: kubectl wait --for=condition=available --timeout=600s deployment/helm-dashboard -n helm-dashboard
