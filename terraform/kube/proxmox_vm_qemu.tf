@@ -12,8 +12,8 @@ resource "null_resource" "cloud_init_user_data_file" {
       {
         hostname            = var.vm_name,
         user                = var.adm_username,
-        ssh_authorized_keys = var.ssh_authorized_keys,
         password            = var.adm_pwd,
+        ssh_authorized_keys = var.ssh_authorized_keys,
       }
     )
     destination = "/var/lib/vz/snippets/user_data_vm-${var.vm_name}.yml"
@@ -56,19 +56,24 @@ resource "proxmox_vm_qemu" "main" {
   clone                  = "cirocky9tpl"
   desc                   = "Rocky Linux 9 VM fully cloned from cirocky9tpl"
   agent                  = 1
-  cores                  = 2
+  cores                  = 8
   define_connection_info = false
   force_create           = true
   memory                 = var.vm_memory
   onboot                 = true
   qemu_os                = "l26"
   scsihw                 = "virtio-scsi-single"
-  bootdisk               = "scsi0"
 
-  disk {
-    type    = "scsi"
-    storage = "local"
-    size    = "50G"
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          size      = 50
+          storage   = "local"
+          replicate = true
+        }
+      }
+    }
   }
 
   network {
@@ -79,7 +84,11 @@ resource "proxmox_vm_qemu" "main" {
 
   os_type = "cloud-init"
 
-  cicustom = "user=local:snippets/user_data_vm-${var.vm_name}.yml,network=local:snippets/network_data_vm-${var.vm_name}.yml"
+  ciuser                  = var.adm_username
+  cipassword              = var.adm_pwd
+  sshkeys                 = var.ssh_authorized_keys
+  cloudinit_cdrom_storage = "local"
+  cicustom                = "user=local:snippets/user_data_vm-${var.vm_name}.yml,network=local:snippets/network_data_vm-${var.vm_name}.yml"
 
   provisioner "remote-exec" {
     connection {
