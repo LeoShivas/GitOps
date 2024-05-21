@@ -1,0 +1,2 @@
+namespace: my-namespaceresources:
+  - ClusterIssuer.yaml
