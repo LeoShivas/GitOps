@@ -4,18 +4,6 @@ inputs:
     description: 'Kubectl version'
     default: 'latest'
     type: string
-  token:
-    description: 'Kubernetes token'
-    required: true
-    type: string
-  server:
-    description: 'Kubernetes server'
-    required: true
-    type: string
-  cert:
-    description: 'Kubernetes certificate'
-    required: true
-    type: string
 runs:
   using: "composite"
   steps:
