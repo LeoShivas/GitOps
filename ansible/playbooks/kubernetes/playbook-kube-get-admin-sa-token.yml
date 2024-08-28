@@ -1,0 +1,14 @@
+- name: Get admin k8s SA token
+  hosts: kube_first_cp
+  become: no
+  tasks:
+  - name: Get the Secret object of the admin service account
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: "{{ ansible_user }}"
+      namespace: kube-system
+    register: secret
+  - name: Output the token secret to GitHub
+    debug:
+      var: secret.resources[0].data.token | b64decode
