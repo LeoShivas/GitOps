@@ -20,6 +20,8 @@ metadata:
   labels:
     {{- include "kavita.labels" . | nindent 4 }}
   annotations:
+{{/*    nginx.ingress.kubernetes.io/use-regex: "true"*/}}
+{{/*    nginx.ingress.kubernetes.io/rewrite-target: /$2*/}}
   {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -76,6 +78,10 @@ metadata:
   labels:
     {{- include "kavita.mangaManager.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.mangaManager.auth.fqdn }}
+    nginx.ingress.kubernetes.io/auth-url: "https://{{ .Values.mangaManager.auth.fqdn }}/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://{{ .Values.mangaManager.auth.fqdn }}/oauth2/start?rd=$scheme%3A%2F%2F$host$escaped_request_uri"
+    {{- end }}
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
   {{- with .Values.ingress.annotations }}

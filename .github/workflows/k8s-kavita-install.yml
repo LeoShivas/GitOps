@@ -48,6 +48,7 @@ jobs:
         --set volumeMounts[1].subPath=transmission/download/ebooks \
         --set volumeMounts[1].mountPath=/data \
         --set mangaManager.enabled=true \
+        --set mangaManager.auth.fqdn=${{ secrets.K8S_OAUTH2_PROXY_INGRESS_HOST }} \
         --set mangaManager.env.TITLE="Manga Manager" \
         --set mangaManager.env.KEYBOARD=fr-fr-azerty \
         --set mangaManager.volumeMounts[0].name=data \
