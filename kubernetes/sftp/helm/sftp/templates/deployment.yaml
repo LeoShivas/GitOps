@@ -77,6 +77,8 @@ spec:
         - name: copy-key-{{ $name }}-user
           image: busybox
           command: ['sh', '-c', 'cp -Lr /keys/{{ $name }} /home/']
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
           volumeMounts:
             - name: users-home
               mountPath: /home
@@ -85,12 +87,16 @@ spec:
         - name: give-{{ $name }}-user-permissions
           image: busybox
           command: ['sh', '-c', 'chown -R {{ $user.uid }}:{{ $user.uid }} /home/{{ $name }}']
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
           volumeMounts:
             - name: users-home
               mountPath: /home
         - name: change-home-permissions
           image: busybox
           command: ['sh', '-c', 'chmod 755 /home']
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
           volumeMounts:
             - name: users-home
               mountPath: /home
