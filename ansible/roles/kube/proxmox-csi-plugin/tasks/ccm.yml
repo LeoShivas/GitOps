@@ -12,8 +12,8 @@
           clusters:
             - url: "{{ proxmox_url }}"
               insecure: false
-              token_id: "kubernetes@pve!ccm"
-              token_secret: "xxxxxxxxxxxxxxxxxxxxxxxx"
+              token_id: "{{ proxmox_ccm_token_id }}"
+              token_secret: "{{ proxmox_ccm_token_secret }}"
               region: main
         enabledControllers:
           - cloud-node
@@ -46,8 +46,8 @@
           clusters:
             - url: "{{ proxmox_url }}"
               insecure: false
-              token_id: "kubernetes-csi@pve!csi"
-              token_secret: "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+              token_id: "{{ proxmox_csi_token_id }}"
+              token_secret: "{{ proxmox_csi_token_secret }}"
               region: main
         node:
           nodeSelector:

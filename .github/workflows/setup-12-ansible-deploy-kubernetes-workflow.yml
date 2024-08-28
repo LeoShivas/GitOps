@@ -21,6 +21,10 @@ jobs:
         K8S_ENDPOINT: ${{ secrets.K8S_ENDPOINT }}
         K8S_POD_CIDR: ${{ vars.K8S_POD_CIDR }}
         PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+        PROXMOX_CCM_TOKEN_ID: ${{ secrets.PROXMOX_CCM_TOKEN_ID }}
+        PROXMOX_CCM_TOKEN_SECRET: ${{ secrets.PROXMOX_CCM_TOKEN_SECRET }}
+        PROXMOX_CSI_TOKEN_ID: ${{ secrets.PROXMOX_CSI_TOKEN_ID }}
+        PROXMOX_CSI_TOKEN_SECRET: ${{ secrets.PROXMOX_CSI_TOKEN_SECRET }}
     - name: Get admin ServiceAccount token
       id: get-admin-k8s-sa-token
       run: |
