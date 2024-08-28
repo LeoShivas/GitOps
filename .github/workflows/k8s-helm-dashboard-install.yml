@@ -27,6 +27,7 @@ jobs:
         --repo https://helm-charts.komodor.io \
         --namespace helm-dashboard \
         --create-namespace \
+        --set replicaCount=1 \
         --set ingress.enabled=true \
         --set ingress.className=nginx \
         --set ingress.hosts[0].host=${{ secrets.HELM_DASHBOARD_FQDN }} \
