@@ -42,6 +42,11 @@ jobs:
         --set volumes[0].persistentVolumeClaim.claimName=kavita-data \
         --set volumeMounts[0].name=data \
         --set volumeMounts[0].mountPath=/ebooks \
+        --set volumes[1].name=download \
+        --set volumes[1].persistentVolumeClaim.claimName=pms-data \
+        --set volumeMounts[1].name=download \
+        --set volumeMounts[1].subPath=transmission/download/ebooks \
+        --set volumeMounts[1].mountPath=/data \
         --set mangaManager.enabled=true \
         --set mangaManager.env.TITLE="Manga Manager" \
         --set mangaManager.env.KEYBOARD=fr-fr-azerty \
