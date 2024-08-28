@@ -20,6 +20,11 @@ mangaManager:
   service:
     type: ClusterIP
     port: 3000
+  rdp:
+    enabled: false
+    service:
+      type: ClusterIP
+      port: 3389
 # https://github.com/MangaManagerORG/Manga-Manager/blob/main/docker-compose.yml
   env: {}
   volumeMounts: []

@@ -137,8 +137,11 @@ spec:
           image: "{{ .Values.mangaManager.image.repository }}:{{ .Values.mangaManager.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.mangaManager.image.pullPolicy }}
           ports:
-            - name: manga-manager
+            - name: web-ui
               containerPort: 3000
+              protocol: TCP
+            - name: rdp
+              containerPort: 3389
               protocol: TCP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

@@ -113,11 +113,11 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $fullName }}-manga-manager
+                name: {{ $fullName }}-manga-manager-web-ui
                 port:
-                  name: manga-manager
+                  name: web-ui
               {{- else }}
-              serviceName: {{ $fullName }}-manga-manager
+              serviceName: {{ $fullName }}-manga-manager-web-ui
               servicePort: 3000
               {{- end }}
     {{- end }}

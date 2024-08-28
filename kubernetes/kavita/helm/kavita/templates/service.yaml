@@ -19,7 +19,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kavita.fullname" . }}-manga-manager
+  name: {{ include "kavita.fullname" . }}-manga-manager-web-ui
   namespace: {{.Release.Namespace}}
   labels:
     {{- include "kavita.mangaManager.labels" . | nindent 4 }}
@@ -27,9 +27,28 @@ spec:
   type: {{ .Values.mangaManager.service.type }}
   ports:
     - port: {{ .Values.mangaManager.service.port }}
-      targetPort: manga-manager
+      targetPort: web-ui
       protocol: TCP
-      name: manga-manager
+      name: web-ui
   selector:
     {{- include "kavita.mangaManager.selectorLabels" . | nindent 4 }}
+  {{- if .Values.mangaManager.rdp.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kavita.fullname" . }}-manga-manager-rdp
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "kavita.mangaManager.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mangaManager.rdp.service.type }}
+  ports:
+    - port: {{ .Values.mangaManager.rdp.service.port }}
+      targetPort: rdp
+      protocol: TCP
+      name: rdp
+  selector:
+    {{- include "kavita.mangaManager.selectorLabels" . | nindent 4 }}
+  {{- end }}
 {{- end }}
