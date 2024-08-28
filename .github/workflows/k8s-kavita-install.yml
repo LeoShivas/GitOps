@@ -21,11 +21,11 @@ jobs:
         server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
         cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
     - name: Create Kavita main storage
-      run: kubectl apply -k ./kubernetes/kavita/kustomize
+      run: kubectl apply -n ${{ vars.PLEX_NAMESPACE }} -k ./kubernetes/kavita/kustomize
     - name: Install Kavita
       run: |
         helm upgrade --install kavita ./kubernetes/kavita/helm/kavita \
-        --namespace my-namespace \
+        --namespace ${{ vars.PLEX_NAMESPACE }} \
         --set env.PUID=${{ vars.PLEX_UID }} \
         --set env.PGID=${{ vars.PLEX_GID }} \
         --set env.TZ=${{ vars.MAIN_TIMEZONE }} \

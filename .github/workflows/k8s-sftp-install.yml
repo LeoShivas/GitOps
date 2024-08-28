@@ -23,7 +23,7 @@ jobs:
     - name: Install SFTP
       run: |
         helm upgrade --install sftp ./kubernetes/sftp/helm/sftp \
-        --namespace my-namespace \
+        --namespace ${{ vars.PLEX_NAMESPACE }} \
         --set users.${{ secrets.SFTP_USER }}.password=${{ secrets.SFTP_PASSWORD }} \
         --set users.${{ secrets.SFTP_USER }}.sshPublicKey="${{ secrets.SFTP_SSH_PUBLIC_KEY }}" \
         --set users.${{ secrets.SFTP_USER }}.uid=${{ vars.PLEX_UID }} \

@@ -20,13 +20,15 @@ jobs:
         token: ${{ secrets.K8S_ADM_TOKEN_SECRET }}
         server: ${{ secrets.K8S_ENDPOINT_EXTERNAL }}
         cert: ${{ secrets.K8S_ADM_CERT_SECRET }}
-    - name: Create Plex namespace and main storage
-      run: kubectl apply -k ./kubernetes/plex/kustomize
+    - name: Create Plex namespace
+      run: kubectl create namespace ${{ vars.PLEX_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+    - name: Create Plex main storage
+      run: kubectl apply -n ${{ vars.PLEX_NAMESPACE }} -k ./kubernetes/plex/kustomize
     - name: Install Plex
       run: |
         helm upgrade --install plex-media-server plex-media-server \
         --repo https://raw.githubusercontent.com/plexinc/pms-docker/gh-pages \
-        --namespace my-namespace \
+        --namespace ${{ vars.PLEX_NAMESPACE }} \
         --values ./kubernetes/plex/helm/values.yaml \
         --set image.pullPolicy=Always \
         --set ingress.enabled=true \

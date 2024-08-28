@@ -23,7 +23,7 @@ jobs:
     - name: Install Transmission
       run: |
         helm upgrade --install transmission ./kubernetes/transmission/helm/transmission \
-        --namespace my-namespace \
+        --namespace ${{ vars.PLEX_NAMESPACE }} \
         --set peerListeningPort=${{ vars.TRANSMISSION_PEER_LISTENING_PORT }} \
         --set env.PUID=${{ vars.PLEX_UID }} \
         --set env.PGID=${{ vars.PLEX_GID }} \
