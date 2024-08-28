@@ -35,6 +35,8 @@ mangaManager:
   podAnnotations: {}
   podLabels: {}
   ingressPath: /manga-manager
+  auth: {}
+  # fqdn: manga-manager-oauth.example.com
 
 imagePullSecrets: []
 nameOverride: ""
