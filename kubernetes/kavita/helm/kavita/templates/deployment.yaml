@@ -123,6 +123,21 @@ spec:
       serviceAccountName: {{ include "kavita.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-config
+          command: ['sh', '-c', 'cp /config-file/config.ini /config-dir/']
+          envFrom:
+            - configMapRef:
+                name: {{ include "kavita.fullname" . }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.mangaManager.image.repository }}:{{ .Values.mangaManager.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.mangaManager.image.pullPolicy }}
+          volumeMounts:
+            - mountPath: /config-dir
+              name: manga-manager-config-dir
+            - mountPath: /config-file
+              name: manga-manager-config-file
       containers:
         - name: manga-manager
           envFrom:
@@ -130,7 +145,7 @@ spec:
                 name: {{ include "kavita.fullname" . }}
           {{- if .Values.mangaManager.env }}
             - configMapRef:
-                name: {{ include "kavita.fullname" . }}-manga-manager
+                name: {{ include "kavita.fullname" . }}-manga-manager-env
           {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -148,6 +163,8 @@ spec:
           volumeMounts:
             - mountPath: /covers
               name: manga-manager-folder
+            - mountPath: /config/MangaManager
+              name: manga-manager-config-dir
           {{- with .Values.mangaManager.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -155,6 +172,14 @@ spec:
         - name: manga-manager-folder
           persistentVolumeClaim:
             claimName: {{ .Values.storage.config.existingClaim | default (list (include "kavita.fullname" .) "manga-manager-folder" | join "-") }}
+        - name: manga-manager-config-file
+          configMap:
+            name: {{ include "kavita.fullname" . }}-manga-manager-config
+            items:
+              - key: config.ini
+                path: config.ini
+        - name: manga-manager-config-dir
+          emptyDir: {}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
