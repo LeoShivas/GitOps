@@ -40,5 +40,9 @@
   hosts: kube_first_cp
   vars:
     proxmox_url: "{{ lookup('env','PROXMOX_URL') }}"
+    proxmox_ccm_token_id: "{{ lookup('env','PROXMOX_CCM_TOKEN_ID') }}"
+    proxmox_ccm_token_secret: "{{ lookup('env','PROXMOX_CCM_TOKEN_SECRET') }}"
+    proxmox_csi_token_id: "{{ lookup('env','PROXMOX_CSI_TOKEN_ID') }}"
+    proxmox_csi_token_secret: "{{ lookup('env','PROXMOX_CSI_TOKEN_SECRET') }}"
   roles:
     - kube/proxmox-csi-plugin
