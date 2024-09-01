@@ -46,12 +46,14 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-            - name: {{ .Values.peerListeningPort }}-tcp
-              containerPort: {{ .Values.peerListeningPort }}
+            {{- if gt (default 0 .Values.env.PEERPORT) 0 }}
+            - name: {{ .Values.env.PEERPORT }}-tcp
+              containerPort: {{ .Values.env.PEERPORT }}
               protocol: TCP
-            - name: {{ .Values.peerListeningPort }}-udp
-              containerPort: {{ .Values.peerListeningPort }}
+            - name: {{ .Values.env.PEERPORT }}-udp
+              containerPort: {{ .Values.env.PEERPORT }}
               protocol: UDP
+            {{- end }}
           livenessProbe:
             tcpSocket:
               port: http

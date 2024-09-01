@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "transmission.fullname" . }}-ui
+  name: {{ include "transmission.fullname" . }}bt-ui
   namespace: {{.Release.Namespace}}
   labels:
     {{- include "transmission.labels" . | nindent 4 }}
@@ -15,24 +15,26 @@ spec:
       name: http
   selector:
     {{- include "transmission.selectorLabels" . | nindent 4 }}
+{{- if gt (default 0 .Values.env.PEERPORT) 0 }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "transmission.fullname" . }}-peer
+  name: {{ include "transmission.fullname" . }}bt-peer
   namespace: {{.Release.Namespace}}
   labels:
     {{- include "transmission.labels" . | nindent 4 }}
 spec:
   type: NodePort
   ports:
-    - port: {{ .Values.peerListeningPort }}
-      nodePort: {{ .Values.peerListeningPort }}
+    - port: {{ .Values.env.PEERPORT }}
+      nodePort: {{ .Values.env.PEERPORT }}
       protocol: UDP
-      name: {{ .Values.peerListeningPort }}-udp
-    - port: {{ .Values.peerListeningPort }}
-      nodePort: {{ .Values.peerListeningPort }}
+      name: {{ .Values.env.PEERPORT }}-udp
+    - port: {{ .Values.env.PEERPORT }}
+      nodePort: {{ .Values.env.PEERPORT }}
       protocol: TCP
-      name: {{ .Values.peerListeningPort }}-tcp
+      name: {{ .Values.env.PEERPORT }}-tcp
   selector:
     {{- include "transmission.selectorLabels" . | nindent 4 }}
+{{- end }}
