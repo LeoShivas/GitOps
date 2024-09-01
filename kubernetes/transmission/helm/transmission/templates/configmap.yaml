@@ -9,3 +9,29 @@ data:
 {{- range $key, $value := .Values.env }}
   {{ $key }}: {{ $value | quote }}
 {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "transmission.fullname" . }}-scripts
+  namespace: {{.Release.Namespace}}
+  labels:
+    {{- include "transmission.labels" . | nindent 4 }}
+data:
+{{ if .Values.hardLinking }}
+  torrent-done.sh: |-
+    #!/bin/bash
+    declare -A folders
+{{- range $key, $value := .Values.hardLinking }}
+    folders["{{ $key }}"]="{{ $value }}"
+{{- end }}
+    echo "Torrent ${TR_TORRENT_DIR}/${TR_TORRENT_NAME} finished downloading"
+    for folder in "${!folders[@]}"; do
+      if [ "${TR_TORRENT_DIR}" = "${folder}" ]; then
+        mkdir -p "${folders["${folder}"]}"
+        echo "Creating folder ${folders["${folder}"]}"
+        cp -lR "${TR_TORRENT_DIR}/${TR_TORRENT_NAME}" "${folders["${folder}"]}"/
+        echo "Hard linking ${TR_TORRENT_DIR}/${TR_TORRENT_NAME} to ${folders["${folder}"]}"
+      fi
+    done
+{{ end }}

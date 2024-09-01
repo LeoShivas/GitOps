@@ -37,6 +37,13 @@ spec:
                 name: {{ include "transmission.fullname" . }}
             - secretRef:
                 name: {{ include "transmission.fullname" . }}
+          env:
+            - name: DOCKER_MODS
+              value: linuxserver/mods:transmission-env-var-settings
+            - name: TRANSMISSION_SCRIPT_TORRENT_DONE_ENABLED
+              value: "true"
+            - name: TRANSMISSION_SCRIPT_TORRENT_DONE_FILENAME
+              value: /scripts/torrent-done.sh
           name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -73,6 +80,8 @@ spec:
               name: config
             - mountPath: /data
               name: data
+            - mountPath: /scripts
+              name: scripts
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -83,6 +92,10 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ required "An existing claim name for storing data is required !" .Values.storage.data.existingClaim }}
+        - name: scripts
+          configMap:
+            name: {{ include "transmission.fullname" . }}-scripts
+            defaultMode: 0777
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -114,3 +114,10 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# HardLinking is a list of directories to hard link to another directory.
+# This is useful for rsyncing data with the '--remove-source-files' option from one directory to a remote location in which a traitment is done.
+hardLinking: {}
+#hardLinking:
+#  /an/example/folder: /an/example/folder2
+#  "/my/example/folder/with space": "/my/example/folder/with space2"

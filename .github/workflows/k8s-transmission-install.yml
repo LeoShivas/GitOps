@@ -39,4 +39,6 @@ jobs:
         --set storage.config.storageClass=proxmox-data \
         --set storage.data.existingClaim=${{ vars.PLEX_PVC_NAME }} \
         --set username=${{ secrets.TRANSMISSION_USERNAME }} \
-        --set password=${{ secrets.TRANSMISSION_PWD }}
+        --set password=${{ secrets.TRANSMISSION_PWD }} \
+        --set hardLinking."/an/example/folder"="/an/example/folder2" \
+        --set hardLinking."/my/example/folder/with space"]="/my/example/folder/with space2"
