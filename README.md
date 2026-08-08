@@ -63,7 +63,8 @@ This repository is organized following this way :
 Some workflows of this repository are published as [reusable workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows) : any repository, in this organization or outside of it, can call them.
 
 ### Rebase downstream branches
-File : [.github/workflows/reusable-rebase-downstream-branches.yml](.github/workflows/reusable-rebase-downstream-branches.yml)
+* Workflow : [.github/workflows/reusable-rebase-downstream-branches.yml](.github/workflows/reusable-rebase-downstream-branches.yml)
+* Full documentation : [.github/workflows/reusable-rebase-downstream-branches.md](.github/workflows/reusable-rebase-downstream-branches.md)
 
 This workflow keeps a git-flow style branch tree linear. Whenever a long lived branch moves, every branch sitting downstream of it is rebased on top of it and force pushed :
 * A push on the production branch (`main` by default) rebases the release and hotfix branches, and the integration branch (`develop` by default). It then cascades and rebases the feature branches onto the integration branch, which has just moved too.
@@ -96,28 +97,7 @@ jobs:
 
 The `permissions: contents: write` block is mandatory : a called workflow can only lower the permissions granted by its caller, never raise them.
 
-#### Inputs
-All the inputs are optional, their defaults describe a standard git-flow repository using [conventional commits](https://www.conventionalcommits.org/) branch prefixes.
-
-| Name | Default | Description |
-| --- | --- | --- |
-| `base-branch` | the ref the caller runs on | Branch that moved and that downstream branches are rebased onto. The default is what you want for a `push` trigger. |
-| `production-branch` | `main` | Long lived branch holding the released code. |
-| `integration-branch` | `develop` | Long lived branch holding the next release. Set it to an empty string for a repository with a single long lived branch, this also disables the cascade. |
-| `release-prefixes` | `hotfix/ release/` | Space separated branch name prefixes rebased onto the production branch. |
-| `feature-prefixes` | `feat/ fix/ docs/ style/ refactor/ perf/ test/ build/ ci/ chore/ revert/` | Space separated branch name prefixes rebased onto the integration branch. |
-| `committer-name` | `github-actions[bot]` | Name used for the rebase commits. |
-| `committer-email` | `github-actions[bot]@users.noreply.github.com` | Email used for the rebase commits. |
-| `runs-on` | `ubuntu-latest` | Runner label used by every job. |
-
-#### Secrets
-| Name | Required | Description |
-| --- | --- | --- |
-| `token` | No | Token used to clone and force push the rebased branches. Defaults to the caller `GITHUB_TOKEN`. Pass a personal access token or a GitHub App token if you need the force pushes to trigger workflows on the rebased branches, because [pushes made with `GITHUB_TOKEN` never trigger a workflow run](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow). |
-
-#### Requirements on the calling repository
-* Branch protection rules must allow force pushes from the token in use on the rebased branches.
-* Every rebased branch must be pushed to `origin`, the detection is done on the remote branches.
+Every input, secret, branch model variation and requirement on the calling repository is described in the [companion documentation](.github/workflows/reusable-rebase-downstream-branches.md).
 
 ## Secrets creation
 By following the [official GitHub documentation](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-an-environment), create the following secrets :
