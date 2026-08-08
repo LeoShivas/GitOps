@@ -1,3 +1,4 @@
 .theia
 .idea
 .terraform*
+.worktrees/

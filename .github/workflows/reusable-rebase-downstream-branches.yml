@@ -1,0 +1,233 @@
+name: Reusable - Rebase downstream branches
+
+# Keeps a git-flow style branch tree linear: when a long-lived branch moves,
+# every branch that sits downstream of it is rebased and force-pushed.
+#
+#   push on <production-branch>  -> rebase <release-prefixes> branches + <integration-branch>
+#                                -> then cascade: rebase <feature-prefixes> branches onto <integration-branch>
+#   push on <integration-branch> -> rebase <feature-prefixes> branches
+#
+# The calling workflow MUST grant `permissions: contents: write`.
+# See the "Reusable workflows" section of the repository README for a usage example.
+
+on:
+  workflow_call:
+    inputs:
+      base-branch:
+        description: 'Branch that moved and that downstream branches are rebased onto. Defaults to the ref the caller workflow runs on, which is what you want for a `push` trigger.'
+        required: false
+        default: ''
+        type: string
+      production-branch:
+        description: 'Long-lived branch holding the released code. Release and hotfix branches, plus the integration branch, are rebased onto it.'
+        required: false
+        default: 'main'
+        type: string
+      integration-branch:
+        description: 'Long-lived branch holding the next release. Feature branches are rebased onto it. Set it to an empty string for a single long-lived branch repository.'
+        required: false
+        default: 'develop'
+        type: string
+      release-prefixes:
+        description: 'Space separated branch name prefixes to rebase onto the production branch.'
+        required: false
+        default: 'hotfix/ release/'
+        type: string
+      feature-prefixes:
+        description: 'Space separated branch name prefixes to rebase onto the integration branch.'
+        required: false
+        default: 'feat/ fix/ docs/ style/ refactor/ perf/ test/ build/ ci/ chore/ revert/'
+        type: string
+      committer-name:
+        description: 'Name used for the rebase commits.'
+        required: false
+        default: 'github-actions[bot]'
+        type: string
+      committer-email:
+        description: 'Email used for the rebase commits.'
+        required: false
+        default: 'github-actions[bot]@users.noreply.github.com'
+        type: string
+      runs-on:
+        description: 'Runner label used by every job.'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+    secrets:
+      token:
+        description: 'Token used to clone and force-push the rebased branches. Defaults to the caller GITHUB_TOKEN. Pass a personal access token or a GitHub App token if you need the force-pushes to trigger workflows, because pushes made with GITHUB_TOKEN never do.'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Tier 1: direct downstreams of the branch that moved.
+  detect:
+    name: Detect branches to rebase
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      base-branch: ${{ steps.detect.outputs.base-branch }}
+      branches: ${{ steps.detect.outputs.branches }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.token || github.token }}
+    - name: Detect downstream branches
+      id: detect
+      env:
+        BASE_BRANCH_INPUT: ${{ inputs.base-branch }}
+        PRODUCTION_BRANCH: ${{ inputs.production-branch }}
+        INTEGRATION_BRANCH: ${{ inputs.integration-branch }}
+        RELEASE_PREFIXES: ${{ inputs.release-prefixes }}
+        FEATURE_PREFIXES: ${{ inputs.feature-prefixes }}
+      run: |
+        set -euo pipefail
+
+        BASE_BRANCH="${BASE_BRANCH_INPUT:-$GITHUB_REF_NAME}"
+
+        if [ "$BASE_BRANCH" = "$PRODUCTION_BRANCH" ]; then
+          PATTERNS="$RELEASE_PREFIXES"
+          EXTRA="$INTEGRATION_BRANCH"
+        elif [ -n "$INTEGRATION_BRANCH" ] && [ "$BASE_BRANCH" = "$INTEGRATION_BRANCH" ]; then
+          PATTERNS="$FEATURE_PREFIXES"
+          EXTRA=""
+        else
+          echo "::notice::'$BASE_BRANCH' is neither the production nor the integration branch, nothing to rebase."
+          {
+            echo "base-branch=$BASE_BRANCH"
+            echo "branches=[]"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        BRANCHES="[]"
+        for prefix in $PATTERNS; do
+          FOUND=$(git branch -r --list "origin/${prefix}*" | sed 's|origin/||;s/^[[:space:]]*//')
+          if [ -n "$FOUND" ]; then
+            BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$FOUND" '. + ($b | split("\n") | map(select(length > 0)))')
+          fi
+        done
+
+        if [ -n "$EXTRA" ] && git rev-parse --verify "origin/$EXTRA" >/dev/null 2>&1; then
+          BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$EXTRA" '. + [$b]')
+        fi
+
+        {
+          echo "base-branch=$BASE_BRANCH"
+          echo "branches=$BRANCHES"
+        } >> "$GITHUB_OUTPUT"
+        echo "Branches to rebase onto $BASE_BRANCH: $BRANCHES"
+
+  rebase:
+    name: "Rebase ${{ matrix.branch }} onto ${{ needs.detect.outputs.base-branch }}"
+    needs: detect
+    if: needs.detect.outputs.branches != '[]'
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.detect.outputs.branches) }}
+      fail-fast: false
+    steps:
+    - name: Checkout ${{ matrix.branch }}
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ matrix.branch }}
+        fetch-depth: 0
+        token: ${{ secrets.token || github.token }}
+    - name: Configure git
+      env:
+        COMMITTER_NAME: ${{ inputs.committer-name }}
+        COMMITTER_EMAIL: ${{ inputs.committer-email }}
+      run: |
+        git config user.name "$COMMITTER_NAME"
+        git config user.email "$COMMITTER_EMAIL"
+    - name: Rebase onto ${{ needs.detect.outputs.base-branch }}
+      env:
+        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
+      run: |
+        git fetch origin "$BASE_BRANCH"
+        git rebase "origin/$BASE_BRANCH"
+    - name: Push changes
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: git push --force-with-lease origin "$BRANCH"
+    - name: Report conflict
+      if: failure()
+      run: |
+        echo "::warning::Rebase of ${{ matrix.branch }} onto ${{ needs.detect.outputs.base-branch }} failed. Manual rebase required."
+
+  # Tier 2: when the production branch moved, the integration branch moved too,
+  # so its own downstream branches have to follow.
+  detect-cascade:
+    name: Detect cascade branches
+    needs: [detect, rebase]
+    if: inputs.integration-branch != '' && needs.detect.outputs.base-branch == inputs.production-branch
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      branches: ${{ steps.detect.outputs.branches }}
+    steps:
+    - name: Checkout ${{ inputs.integration-branch }}
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ inputs.integration-branch }}
+        fetch-depth: 0
+        token: ${{ secrets.token || github.token }}
+    - name: Detect integration branch downstreams
+      id: detect
+      env:
+        INTEGRATION_BRANCH: ${{ inputs.integration-branch }}
+        FEATURE_PREFIXES: ${{ inputs.feature-prefixes }}
+      run: |
+        set -euo pipefail
+
+        BRANCHES="[]"
+        for prefix in $FEATURE_PREFIXES; do
+          FOUND=$(git branch -r --list "origin/${prefix}*" | sed 's|origin/||;s/^[[:space:]]*//')
+          if [ -n "$FOUND" ]; then
+            BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$FOUND" '. + ($b | split("\n") | map(select(length > 0)))')
+          fi
+        done
+
+        echo "branches=$BRANCHES" >> "$GITHUB_OUTPUT"
+        echo "Cascade, branches to rebase onto $INTEGRATION_BRANCH: $BRANCHES"
+
+  rebase-cascade:
+    name: "Cascade: rebase ${{ matrix.branch }} onto ${{ inputs.integration-branch }}"
+    needs: detect-cascade
+    if: needs.detect-cascade.outputs.branches != '[]'
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      matrix:
+        branch: ${{ fromJson(needs.detect-cascade.outputs.branches) }}
+      fail-fast: false
+    steps:
+    - name: Checkout ${{ matrix.branch }}
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ matrix.branch }}
+        fetch-depth: 0
+        token: ${{ secrets.token || github.token }}
+    - name: Configure git
+      env:
+        COMMITTER_NAME: ${{ inputs.committer-name }}
+        COMMITTER_EMAIL: ${{ inputs.committer-email }}
+      run: |
+        git config user.name "$COMMITTER_NAME"
+        git config user.email "$COMMITTER_EMAIL"
+    - name: Rebase onto ${{ inputs.integration-branch }}
+      env:
+        INTEGRATION_BRANCH: ${{ inputs.integration-branch }}
+      run: |
+        git fetch origin "$INTEGRATION_BRANCH"
+        git rebase "origin/$INTEGRATION_BRANCH"
+    - name: Push changes
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: git push --force-with-lease origin "$BRANCH"
+    - name: Report conflict
+      if: failure()
+      run: |
+        echo "::warning::Cascade rebase of ${{ matrix.branch }} onto ${{ inputs.integration-branch }} failed. Manual rebase required."
