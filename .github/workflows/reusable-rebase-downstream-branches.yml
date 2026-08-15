@@ -1,40 +1,41 @@
 name: Reusable - Rebase downstream branches
 
-# Keeps a git-flow style branch tree linear: when a long-lived branch moves,
-# every branch that sits downstream of it is rebased and force-pushed.
+# Keeps a git-flow style branch tree linear: when a long lived branch moves,
+# every branch that sits downstream of it is rebased and force pushed.
 #
-#   push on <production-branch>  -> rebase <release-prefixes> branches + <integration-branch>
-#                                -> then cascade: rebase <feature-prefixes> branches onto <integration-branch>
+#   push on <production-branch>  -> rebase <release-prefixes> branches
+#                                -> rebase <integration-branch>
+#                                -> cascade: rebase <feature-prefixes> branches onto <integration-branch>
 #   push on <integration-branch> -> rebase <feature-prefixes> branches
 #
 # The calling workflow MUST grant `permissions: contents: write`.
-# See the "Reusable workflows" section of the repository README for a usage example.
+# Documentation: reusable-rebase-downstream-branches.md
 
 on:
   workflow_call:
     inputs:
       base-branch:
-        description: 'Branch that moved and that downstream branches are rebased onto. Defaults to the ref the caller workflow runs on, which is what you want for a `push` trigger.'
+        description: 'Branch that moved and that downstream branches are rebased onto. Leave it unset on a `push` trigger, it then defaults to the ref the caller workflow runs on. Always set it explicitly on a `schedule` or `workflow_dispatch` trigger, where that ref is the repository default branch.'
         required: false
         default: ''
         type: string
       production-branch:
-        description: 'Long-lived branch holding the released code. Release and hotfix branches, plus the integration branch, are rebased onto it.'
+        description: 'Long lived branch holding the released code. Release and hotfix branches, and the integration branch, are rebased onto it.'
         required: false
         default: 'main'
         type: string
       integration-branch:
-        description: 'Long-lived branch holding the next release. Feature branches are rebased onto it. Set it to an empty string for a single long-lived branch repository.'
+        description: 'Long lived branch holding the next release. Feature branches are rebased onto it. Set it to an empty string for a single long lived branch repository, this also disables the cascade.'
         required: false
         default: 'develop'
         type: string
       release-prefixes:
-        description: 'Space separated branch name prefixes to rebase onto the production branch.'
+        description: 'Whitespace separated branch name prefixes to rebase onto the production branch. Matched literally, this is not a glob.'
         required: false
         default: 'hotfix/ release/'
         type: string
       feature-prefixes:
-        description: 'Space separated branch name prefixes to rebase onto the integration branch.'
+        description: 'Whitespace separated branch name prefixes to rebase onto the integration branch. Matched literally, this is not a glob.'
         required: false
         default: 'feat/ fix/ docs/ style/ refactor/ perf/ test/ build/ ci/ chore/ revert/'
         type: string
@@ -49,32 +50,44 @@ on:
         default: 'github-actions[bot]@users.noreply.github.com'
         type: string
       runs-on:
-        description: 'Runner label used by every job.'
+        description: 'Single runner label used by every job. The runner must provide `git` and `jq`.'
         required: false
         default: 'ubuntu-latest'
         type: string
+      job-timeout-minutes:
+        description: 'Timeout applied to every rebase job.'
+        required: false
+        default: 30
+        type: number
     secrets:
       token:
-        description: 'Token used to clone and force-push the rebased branches. Defaults to the caller GITHUB_TOKEN. Pass a personal access token or a GitHub App token if you need the force-pushes to trigger workflows, because pushes made with GITHUB_TOKEN never do.'
+        description: 'Token used to clone and force push the rebased branches. Defaults to the caller GITHUB_TOKEN. Pass a fine grained personal access token scoped to the calling repository, or a GitHub App installation token, if you need the force pushes to trigger workflows, because pushes made with GITHUB_TOKEN never do.'
         required: false
 
+# Least privilege by default. Only the jobs that push raise this to write,
+# and they can only do so within what the calling workflow already granted.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  # Tier 1: direct downstreams of the branch that moved.
+  # Tier 1: direct downstreams of the branch that moved, excluding the
+  # integration branch which gets its own job so that the cascade depends on
+  # it alone.
   detect:
     name: Detect branches to rebase
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
     outputs:
       base-branch: ${{ steps.detect.outputs.base-branch }}
       branches: ${{ steps.detect.outputs.branches }}
+      integration-exists: ${{ steps.detect.outputs.integration-exists }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
-        token: ${{ secrets.token || github.token }}
+        filter: blob:none
+        persist-credentials: false
     - name: Detect downstream branches
       id: detect
       env:
@@ -87,37 +100,63 @@ jobs:
         set -euo pipefail
 
         BASE_BRANCH="${BASE_BRANCH_INPUT:-$GITHUB_REF_NAME}"
+        BASE_BRANCH="${BASE_BRANCH#refs/heads/}"
+
+        # Rejects control characters, so a branch name can never smuggle a
+        # second line into $GITHUB_OUTPUT.
+        if ! git check-ref-format --branch "$BASE_BRANCH" > /dev/null 2>&1; then
+          echo "::error::'$BASE_BRANCH' is not a valid branch name."
+          exit 1
+        fi
+
+        INTEGRATION_EXISTS=false
+        if [ -n "$INTEGRATION_BRANCH" ] && git rev-parse --verify --quiet "origin/$INTEGRATION_BRANCH" > /dev/null; then
+          INTEGRATION_EXISTS=true
+        fi
 
         if [ "$BASE_BRANCH" = "$PRODUCTION_BRANCH" ]; then
-          PATTERNS="$RELEASE_PREFIXES"
-          EXTRA="$INTEGRATION_BRANCH"
+          PREFIXES="$RELEASE_PREFIXES"
         elif [ -n "$INTEGRATION_BRANCH" ] && [ "$BASE_BRANCH" = "$INTEGRATION_BRANCH" ]; then
-          PATTERNS="$FEATURE_PREFIXES"
-          EXTRA=""
+          PREFIXES="$FEATURE_PREFIXES"
         else
           echo "::notice::'$BASE_BRANCH' is neither the production nor the integration branch, nothing to rebase."
           {
             echo "base-branch=$BASE_BRANCH"
             echo "branches=[]"
+            echo "integration-exists=$INTEGRATION_EXISTS"
           } >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
-        BRANCHES="[]"
-        for prefix in $PATTERNS; do
-          FOUND=$(git branch -r --list "origin/${prefix}*" | sed 's|origin/||;s/^[[:space:]]*//')
-          if [ -n "$FOUND" ]; then
-            BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$FOUND" '. + ($b | split("\n") | map(select(length > 0)))')
-          fi
-        done
+        # Prefixes are compared with startswith, never expanded as globs, so a
+        # prefix containing shell or glob metacharacters simply matches nothing
+        # instead of expanding against the working tree or the ref namespace.
+        # `unique` keeps overlapping prefixes from producing duplicate matrix
+        # legs racing each other on the same branch.
+        BRANCHES=$(
+          git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/**' \
+          | jq -Rsc \
+              --arg prefixes "$PREFIXES" \
+              --arg base "$BASE_BRANCH" \
+              --arg integration "$INTEGRATION_BRANCH" '
+                ($prefixes | split("\\s+"; "") | map(select(length > 0))) as $p
+                | split("\n")
+                | map(select(length > 0))
+                | map(select(. != "HEAD" and . != $base and . != $integration))
+                | map(select(. as $b | $p | any(. as $x | $b | startswith($x))))
+                | unique
+              '
+        )
 
-        if [ -n "$EXTRA" ] && git rev-parse --verify "origin/$EXTRA" >/dev/null 2>&1; then
-          BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$EXTRA" '. + [$b]')
+        COUNT=$(printf '%s' "$BRANCHES" | jq 'length')
+        if [ "$COUNT" -gt 256 ]; then
+          echo "::warning::$COUNT branches matched. GitHub caps a matrix at 256 jobs, this run will fail to start the matrix."
         fi
 
         {
           echo "base-branch=$BASE_BRANCH"
           echo "branches=$BRANCHES"
+          echo "integration-exists=$INTEGRATION_EXISTS"
         } >> "$GITHUB_OUTPUT"
         echo "Branches to rebase onto $BASE_BRANCH: $BRANCHES"
 
@@ -126,13 +165,16 @@ jobs:
     needs: detect
     if: needs.detect.outputs.branches != '[]'
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         branch: ${{ fromJson(needs.detect.outputs.branches) }}
       fail-fast: false
     steps:
     - name: Checkout ${{ matrix.branch }}
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         ref: ${{ matrix.branch }}
         fetch-depth: 0
@@ -142,39 +184,129 @@ jobs:
         COMMITTER_NAME: ${{ inputs.committer-name }}
         COMMITTER_EMAIL: ${{ inputs.committer-email }}
       run: |
+        set -euo pipefail
         git config user.name "$COMMITTER_NAME"
         git config user.email "$COMMITTER_EMAIL"
     - name: Rebase onto ${{ needs.detect.outputs.base-branch }}
-      env:
-        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
-      run: |
-        git fetch origin "$BASE_BRANCH"
-        git rebase "origin/$BASE_BRANCH"
-    - name: Push changes
+      id: rebase
       env:
         BRANCH: ${{ matrix.branch }}
-      run: git push --force-with-lease origin "$BRANCH"
-    - name: Report conflict
-      if: failure()
+        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
       run: |
-        echo "::warning::Rebase of ${{ matrix.branch }} onto ${{ needs.detect.outputs.base-branch }} failed. Manual rebase required."
+        set -euo pipefail
+        git fetch origin "$BASE_BRANCH"
+        # An already merged branch is an ancestor of the base, and `git rebase`
+        # would fast forward it onto the base tip and force push it, silently
+        # turning a stale branch into a moving copy of the base.
+        if git merge-base --is-ancestor HEAD "origin/$BASE_BRANCH"; then
+          echo "::notice::$BRANCH holds no commit of its own on top of $BASE_BRANCH, left untouched."
+          echo "skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        git rebase "origin/$BASE_BRANCH"
+    - name: Push ${{ matrix.branch }}
+      if: steps.rebase.outputs.skipped != 'true'
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: |
+        set -euo pipefail
+        git push --force-with-lease --force-if-includes origin "$BRANCH"
+    - name: Report rebase conflict
+      if: failure() && steps.rebase.outcome == 'failure'
+      env:
+        BRANCH: ${{ matrix.branch }}
+        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::Rebase of $BRANCH onto $BASE_BRANCH failed. The branch was left untouched, a manual rebase is required."
+    - name: Report push rejection
+      if: failure() && steps.rebase.outcome == 'success'
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::$BRANCH was rebased but could not be pushed. The branch is protected against force pushes, or it moved during the run."
 
-  # Tier 2: when the production branch moved, the integration branch moved too,
-  # so its own downstream branches have to follow.
-  detect-cascade:
-    name: Detect cascade branches
-    needs: [detect, rebase]
-    if: inputs.integration-branch != '' && needs.detect.outputs.base-branch == inputs.production-branch
+  # The integration branch is rebased on its own so that the cascade below
+  # depends on this branch alone, and not on unrelated release branches.
+  rebase-integration:
+    name: "Rebase ${{ inputs.integration-branch }} onto ${{ needs.detect.outputs.base-branch }}"
+    needs: detect
+    if: needs.detect.outputs.integration-exists == 'true' && needs.detect.outputs.base-branch == inputs.production-branch
     runs-on: ${{ inputs.runs-on }}
-    outputs:
-      branches: ${{ steps.detect.outputs.branches }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
+    permissions:
+      contents: write
     steps:
     - name: Checkout ${{ inputs.integration-branch }}
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         ref: ${{ inputs.integration-branch }}
         fetch-depth: 0
         token: ${{ secrets.token || github.token }}
+    - name: Configure git
+      env:
+        COMMITTER_NAME: ${{ inputs.committer-name }}
+        COMMITTER_EMAIL: ${{ inputs.committer-email }}
+      run: |
+        set -euo pipefail
+        git config user.name "$COMMITTER_NAME"
+        git config user.email "$COMMITTER_EMAIL"
+    - name: Rebase onto ${{ needs.detect.outputs.base-branch }}
+      id: rebase
+      env:
+        BRANCH: ${{ inputs.integration-branch }}
+        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
+      run: |
+        set -euo pipefail
+        git fetch origin "$BASE_BRANCH"
+        if git merge-base --is-ancestor HEAD "origin/$BASE_BRANCH"; then
+          echo "::notice::$BRANCH holds no commit of its own on top of $BASE_BRANCH, left untouched."
+          echo "skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        git rebase "origin/$BASE_BRANCH"
+    - name: Push ${{ inputs.integration-branch }}
+      if: steps.rebase.outputs.skipped != 'true'
+      env:
+        BRANCH: ${{ inputs.integration-branch }}
+      run: |
+        set -euo pipefail
+        git push --force-with-lease --force-if-includes origin "$BRANCH"
+    - name: Report rebase conflict
+      if: failure() && steps.rebase.outcome == 'failure'
+      env:
+        BRANCH: ${{ inputs.integration-branch }}
+        BASE_BRANCH: ${{ needs.detect.outputs.base-branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::Rebase of $BRANCH onto $BASE_BRANCH failed. The branch was left untouched, a manual rebase is required, and the cascade was not run."
+    - name: Report push rejection
+      if: failure() && steps.rebase.outcome == 'success'
+      env:
+        BRANCH: ${{ inputs.integration-branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::$BRANCH was rebased but could not be pushed. The branch is protected against force pushes, or it moved during the run."
+
+  # Tier 2: the integration branch has just moved, so its own downstream
+  # branches have to follow. Depending on `rebase-integration` alone means a
+  # conflicting release branch cannot block this tier.
+  detect-cascade:
+    name: Detect cascade branches
+    needs: [detect, rebase-integration]
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
+    outputs:
+      branches: ${{ steps.detect.outputs.branches }}
+    steps:
+    - name: Checkout ${{ inputs.integration-branch }}
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.integration-branch }}
+        fetch-depth: 0
+        filter: blob:none
+        persist-credentials: false
     - name: Detect integration branch downstreams
       id: detect
       env:
@@ -183,13 +315,24 @@ jobs:
       run: |
         set -euo pipefail
 
-        BRANCHES="[]"
-        for prefix in $FEATURE_PREFIXES; do
-          FOUND=$(git branch -r --list "origin/${prefix}*" | sed 's|origin/||;s/^[[:space:]]*//')
-          if [ -n "$FOUND" ]; then
-            BRANCHES=$(echo "$BRANCHES" | jq -c --arg b "$FOUND" '. + ($b | split("\n") | map(select(length > 0)))')
-          fi
-        done
+        BRANCHES=$(
+          git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/**' \
+          | jq -Rsc \
+              --arg prefixes "$FEATURE_PREFIXES" \
+              --arg integration "$INTEGRATION_BRANCH" '
+                ($prefixes | split("\\s+"; "") | map(select(length > 0))) as $p
+                | split("\n")
+                | map(select(length > 0))
+                | map(select(. != "HEAD" and . != $integration))
+                | map(select(. as $b | $p | any(. as $x | $b | startswith($x))))
+                | unique
+              '
+        )
+
+        COUNT=$(printf '%s' "$BRANCHES" | jq 'length')
+        if [ "$COUNT" -gt 256 ]; then
+          echo "::warning::$COUNT branches matched. GitHub caps a matrix at 256 jobs, this run will fail to start the matrix."
+        fi
 
         echo "branches=$BRANCHES" >> "$GITHUB_OUTPUT"
         echo "Cascade, branches to rebase onto $INTEGRATION_BRANCH: $BRANCHES"
@@ -199,13 +342,16 @@ jobs:
     needs: detect-cascade
     if: needs.detect-cascade.outputs.branches != '[]'
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         branch: ${{ fromJson(needs.detect-cascade.outputs.branches) }}
       fail-fast: false
     steps:
     - name: Checkout ${{ matrix.branch }}
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         ref: ${{ matrix.branch }}
         fetch-depth: 0
@@ -215,19 +361,42 @@ jobs:
         COMMITTER_NAME: ${{ inputs.committer-name }}
         COMMITTER_EMAIL: ${{ inputs.committer-email }}
       run: |
+        set -euo pipefail
         git config user.name "$COMMITTER_NAME"
         git config user.email "$COMMITTER_EMAIL"
     - name: Rebase onto ${{ inputs.integration-branch }}
-      env:
-        INTEGRATION_BRANCH: ${{ inputs.integration-branch }}
-      run: |
-        git fetch origin "$INTEGRATION_BRANCH"
-        git rebase "origin/$INTEGRATION_BRANCH"
-    - name: Push changes
+      id: rebase
       env:
         BRANCH: ${{ matrix.branch }}
-      run: git push --force-with-lease origin "$BRANCH"
-    - name: Report conflict
-      if: failure()
+        BASE_BRANCH: ${{ inputs.integration-branch }}
       run: |
-        echo "::warning::Cascade rebase of ${{ matrix.branch }} onto ${{ inputs.integration-branch }} failed. Manual rebase required."
+        set -euo pipefail
+        git fetch origin "$BASE_BRANCH"
+        if git merge-base --is-ancestor HEAD "origin/$BASE_BRANCH"; then
+          echo "::notice::$BRANCH holds no commit of its own on top of $BASE_BRANCH, left untouched."
+          echo "skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        git rebase "origin/$BASE_BRANCH"
+    - name: Push ${{ matrix.branch }}
+      if: steps.rebase.outputs.skipped != 'true'
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: |
+        set -euo pipefail
+        git push --force-with-lease --force-if-includes origin "$BRANCH"
+    - name: Report rebase conflict
+      if: failure() && steps.rebase.outcome == 'failure'
+      env:
+        BRANCH: ${{ matrix.branch }}
+        BASE_BRANCH: ${{ inputs.integration-branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::Cascade rebase of $BRANCH onto $BASE_BRANCH failed. The branch was left untouched, a manual rebase is required."
+    - name: Report push rejection
+      if: failure() && steps.rebase.outcome == 'success'
+      env:
+        BRANCH: ${{ matrix.branch }}
+      run: |
+        set -euo pipefail
+        echo "::warning::$BRANCH was rebased but could not be pushed. The branch is protected against force pushes, or it moved during the run."

@@ -60,7 +60,7 @@ This repository is organized following this way :
   * These variables are injected as environment variables in the GitHub Actions workflows
 
 ## Reusable workflows
-Some workflows of this repository are published as [reusable workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows) : any repository, in this organization or outside of it, can call them.
+Some workflows of this repository are published as [reusable workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows) : any other repository, mine or yours, can call them.
 
 ### Rebase downstream branches
 * Workflow : [.github/workflows/reusable-rebase-downstream-branches.yml](.github/workflows/reusable-rebase-downstream-branches.yml)
@@ -70,34 +70,17 @@ This workflow keeps a git-flow style branch tree linear. Whenever a long lived b
 * A push on the production branch (`main` by default) rebases the release and hotfix branches, and the integration branch (`develop` by default). It then cascades and rebases the feature branches onto the integration branch, which has just moved too.
 * A push on the integration branch rebases the feature branches.
 
-Every branch is rebased in its own matrix job, with `fail-fast` disabled. A branch whose rebase ends in a conflict is left untouched and reported as a workflow warning, the other branches are still processed.
+Each branch is rebased in its own matrix job, with `fail-fast` disabled. A branch whose rebase ends in a conflict is left untouched and reported as a workflow warning on a red job, the other branches are still processed. A branch that holds no commit of its own on top of the base is left untouched too.
 
-Minimal usage, in the calling repository :
+Calling it takes one job :
 
 ```yaml
-name: Rebase Downstream Branches
-
-on:
-  push:
-    branches:
-      - main
-      - develop
-
-permissions:
-  contents: write
-
-concurrency:
-  group: rebase-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
   rebase:
-    uses: LeoShivas/GitOps/.github/workflows/reusable-rebase-downstream-branches.yml@main
+    uses: LeoShivas/GitOps/.github/workflows/reusable-rebase-downstream-branches.yml@v1
 ```
 
-The `permissions: contents: write` block is mandatory : a called workflow can only lower the permissions granted by its caller, never raise them.
-
-Every input, secret, branch model variation and requirement on the calling repository is described in the [companion documentation](.github/workflows/reusable-rebase-downstream-branches.md).
+The calling workflow must declare `permissions: contents: write`. The complete caller example, the inputs, the secret, the requirements on the calling repository and the security model are all in the [companion documentation](.github/workflows/reusable-rebase-downstream-branches.md).
 
 ## Secrets creation
 By following the [official GitHub documentation](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-an-environment), create the following secrets :
