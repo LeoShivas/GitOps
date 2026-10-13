@@ -260,9 +260,17 @@ jobs:
       run: |
         set -euo pipefail
         git fetch origin "$BASE_BRANCH"
-        if git merge-base --is-ancestor HEAD "origin/$BASE_BRANCH"; then
-          echo "::notice::$BRANCH holds no commit of its own on top of $BASE_BRANCH, left untouched."
+        if [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$BASE_BRANCH")" ]; then
+          echo "::notice::$BRANCH is already at $BASE_BRANCH, nothing to do."
           echo "skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        # Unlike a downstream branch, an integration branch that is an ancestor
+        # of the base was not merged, it was left behind, typically by a hotfix
+        # landing while it held nothing new. It must follow the base.
+        if git merge-base --is-ancestor HEAD "origin/$BASE_BRANCH"; then
+          git merge --ff-only "origin/$BASE_BRANCH"
+          echo "::notice::$BRANCH held no commit of its own and was fast forwarded to $BASE_BRANCH."
           exit 0
         fi
         git rebase "origin/$BASE_BRANCH"

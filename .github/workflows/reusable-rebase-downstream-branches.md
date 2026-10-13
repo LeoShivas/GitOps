@@ -35,7 +35,7 @@ Each branch is rebased in its own matrix job with `fail-fast` disabled, so one b
 
 ### What happens to a branch
 
-1. A branch that holds no commit of its own on top of the base is **left untouched**. Without this guard `git rebase` would fast forward it onto the base tip and force push it, silently turning a merged or empty branch into a moving copy of the base branch.
+1. A branch that holds no commit of its own on top of the base is **left untouched**. Without this guard `git rebase` would fast forward it onto the base tip and force push it, silently turning a merged or empty branch into a moving copy of the base branch. The integration branch is the exception: when it holds no commit of its own, it was not merged, it was left behind, typically by a hotfix landing on the production branch while it held nothing new. It is **fast forwarded** to the production branch and pushed, so the hotfix reaches it and, through the cascade, the feature branches. When it already sits at the production branch tip, nothing is pushed.
 2. A branch whose rebase ends in a conflict is left untouched on the remote and reported with a `::warning::`. Its matrix job is red, so the run is red.
 3. Otherwise the branch is rebased and pushed with `--force-with-lease --force-if-includes`. The lease is taken against the remote-tracking ref written by the checkout of that same job, so a commit pushed to the branch during the run causes the push to be rejected rather than overwritten. A rejected push is reported separately from a conflict, so the warning never sends you to resolve a conflict that does not exist.
 
