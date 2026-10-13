@@ -70,7 +70,7 @@ This workflow keeps a git-flow style branch tree linear. Whenever a long lived b
 * A push on the production branch (`main` by default) rebases the release and hotfix branches, and the integration branch (`develop` by default). It then cascades and rebases the feature branches onto the integration branch, which has just moved too.
 * A push on the integration branch rebases the feature branches.
 
-Each branch is rebased in its own matrix job, with `fail-fast` disabled. A branch whose rebase ends in a conflict is left untouched and reported as a workflow warning on a red job, the other branches are still processed. A branch that holds no commit of its own on top of the base is left untouched too.
+Each branch is rebased in its own matrix job, with `fail-fast` disabled. A branch whose rebase ends in a conflict is left untouched and reported as a workflow warning on a red job, the other branches are still processed. A branch that holds no commit of its own on top of the base is left untouched too, except the integration branch, which is then fast forwarded to the production branch so that a hotfix always reaches it.
 
 Calling it takes one job :
 
